@@ -85,7 +85,7 @@ Bottom nav has **5 tabs** (`BottomNav.svelte`): Oggi, Agenda, Allenamenti, Eserc
 
 | Table | Key fields | Notes |
 |---|---|---|
-| `exercises` | `name`, `category` (PatternCategory), `coreSubcategory?`, `quality?` (forza/potenza) | indexed on `name`, `category` |
+| `exercises` | `name`, `category` (PatternCategory), `coreSubcategory?`, `quality?` (forza/potenza) | indexed on `name`, `category`. `PatternCategory` values (`src/lib/types.ts`): `spinta_verticale`, `spinta_orizzontale`, `tirata_verticale`, `tirata_orizzontale`, `spinta_gambe`, `tirata_gambe`, `core`, `accessori`, `mobilita` (label "Mobilità"), `multiarticolare` (label "Multiarticolare Total body"). Reworked 2026-07-25 from the previous flat `spinta`/`trazione`/`verticale`/`orizzontale` set — old exercises tagged with those retired values show with no category label until manually re-edited (no migration was run). |
 | `voiceRecordings` | `targetType` ('exercise'\|'phrase'), `exerciseId?`, `phraseKey?`, `profileId?`, `audioBlob`, `createdAt` | exercise recordings are **global** (one per exercise); phrase recordings are scoped per `(phraseKey, profileId)` pair |
 | `voiceProfiles` | `name`, `createdAt` | a named "voice" (e.g. a person) owning a set of the 4 fixed-phrase recordings |
 | `circuits` | `ownerType` ('session'\|'variant'), `ownerId`, `order`, `name`, `tipologia`, `exerciseIds[]`, `timerFormat`, `tabata`, `emom`, `amrap` | compound index `[ownerType+ownerId]`; `ownerId` is a loose reference (no Dexie FK) into `sessions.id` or `standardVariants.id` |
