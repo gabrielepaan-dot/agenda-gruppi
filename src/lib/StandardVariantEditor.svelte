@@ -1,6 +1,6 @@
 <script lang="ts">
   import { db } from './db';
-  import { GROUPS, toIsoDate, type GroupId } from './groups';
+  import { GROUPS, toIsoDate, nextScheduledDate, type GroupId } from './groups';
   import { ensureSessionForDate } from './sessionService';
   import { applyVariantToSession } from './standardService';
   import { getCircuitsFor, deleteCircuitsFor } from './circuitService';
@@ -25,13 +25,22 @@
 
   const group = GROUPS[groupId];
 
+  const WEEKDAY_SHORT: Record<number, string> = { 0: 'dom', 1: 'lun', 2: 'mar', 3: 'mer', 4: 'gio', 5: 'ven', 6: 'sab' };
+
+  function formatShortDate(isoDate: string): string {
+    const [y, m, d] = isoDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return `${WEEKDAY_SHORT[date.getDay()]} ${d}`;
+  }
+
   let notes = $state(variant.notes);
   let circuits = $state<Circuit[]>([]);
   let circuitFormOpen = $state(false);
   let editingCircuit = $state<Circuit | null>(null);
   let timerCircuit = $state<Circuit | null>(null);
   let savedFlash = $state(false);
-  let applied = $state(false);
+  let appliedDate = $state<string | null>(null);
+  const nextDate = nextScheduledDate(groupId);
 
   async function loadCircuits() {
     circuits = await getCircuitsFor('variant', variant.id!);
@@ -82,12 +91,12 @@
     timerCircuit = null;
   }
 
-  async function applyToToday() {
+  async function applyToDate(date: string) {
     await saveText();
-    const todaySession = await ensureSessionForDate(toIsoDate(new Date()), groupId);
-    await applyVariantToSession({ ...variant, notes }, todaySession);
-    applied = true;
-    setTimeout(() => (applied = false), 1800);
+    const targetSession = await ensureSessionForDate(date, groupId);
+    await applyVariantToSession({ ...variant, notes }, targetSession);
+    appliedDate = date;
+    setTimeout(() => (appliedDate = null), 1800);
   }
 
   async function deleteVariant() {
@@ -109,6 +118,11 @@
   </div>
 
   <div class="content">
+    <label class="field">
+      <span>Note</span>
+      <textarea bind:value={notes} onblur={saveText} rows="3" placeholder="Note libere sull'allenamento"></textarea>
+    </label>
+
     <div class="field">
       <span>Circuiti ({circuits.length})</span>
       {#each circuits as c, i (c.id)}
@@ -133,18 +147,18 @@
       <button class="add-circuit-btn" onclick={openNewCircuit}>+ Aggiungi circuito</button>
     </div>
 
-    <label class="field">
-      <span>Note</span>
-      <textarea bind:value={notes} onblur={saveText} rows="3" placeholder="Note libere sull'allenamento"></textarea>
-    </label>
-
     {#if savedFlash}
       <p class="flash">Salvato</p>
     {/if}
 
-    <button class="btn-apply" onclick={applyToToday}>
-      {applied ? 'Applicata a oggi ✓' : '▶ Applica a Oggi'}
-    </button>
+    <div class="apply-row">
+      <button class="chip-apply" onclick={() => applyToDate(toIsoDate(new Date()))}>
+        {appliedDate === toIsoDate(new Date()) ? 'Applicata ✓' : '▶ Oggi'}
+      </button>
+      <button class="chip-apply" onclick={() => applyToDate(nextDate)}>
+        {appliedDate === nextDate ? 'Applicata ✓' : `▶ Prossima lezione (${formatShortDate(nextDate)})`}
+      </button>
+    </div>
 
     <button class="btn-delete" onclick={deleteVariant}>Elimina allenamento</button>
   </div>
@@ -350,14 +364,20 @@
     font-size: 14px;
   }
 
-  .btn-apply {
+  .apply-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .chip-apply {
+    flex: 1;
     background: var(--accent);
     border: none;
     border-radius: var(--radius-md);
-    padding: 15px;
+    padding: 15px 10px;
     color: #fff;
     font-weight: 700;
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .btn-delete {

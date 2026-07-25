@@ -124,6 +124,11 @@
 
   <div class="content">
     <div class="field">
+      <span>Note</span>
+      <textarea bind:value={notes} onblur={saveText} rows="3" placeholder="Note libere sulla sessione"></textarea>
+    </div>
+
+    <div class="field">
       <span>Circuiti ({circuits.length})</span>
       {#each circuits as c, i (c.id)}
         <div class="card">
@@ -145,11 +150,6 @@
         </div>
       {/each}
       <button class="add-circuit-btn" onclick={openNewCircuit}>+ Aggiungi circuito</button>
-    </div>
-
-    <div class="field">
-      <span>Note</span>
-      <textarea bind:value={notes} onblur={saveText} rows="3" placeholder="Note libere sulla sessione"></textarea>
     </div>
 
     {#if savedFlash}
