@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { db } from './db';
   import {
     TIMER_FORMATS,
@@ -242,18 +243,56 @@
   );
 
   let editingRow = $state<IntervalRow | null>(null);
-  let editingValue = $state(0);
+  let editingMinutes = $state(0);
+  let editingSeconds = $state(0);
+  let editingCount = $state(0);
+  let minWheelEl = $state<HTMLDivElement | null>(null);
+  let secWheelEl = $state<HTMLDivElement | null>(null);
+
+  const WHEEL_ITEM_HEIGHT = 44;
+  const wheelNumbers = Array.from({ length: 60 }, (_, i) => i);
 
   function openEdit(row: IntervalRow) {
     editingRow = row;
-    editingValue = row.get();
+    if (row.kind === 'time') {
+      const total = Math.max(0, Math.round(row.get()));
+      editingMinutes = Math.min(59, Math.floor(total / 60));
+      editingSeconds = total % 60;
+    } else {
+      editingCount = row.get();
+    }
   }
 
   function confirmEdit() {
     if (!editingRow) return;
-    editingRow.set(Math.max(0, Math.round(editingValue)));
+    if (editingRow.kind === 'time') {
+      editingRow.set(editingMinutes * 60 + editingSeconds);
+    } else {
+      editingRow.set(Math.max(0, Math.round(editingCount)));
+    }
     editingRow = null;
   }
+
+  function handleMinWheelScroll(e: Event) {
+    const el = e.currentTarget as HTMLDivElement;
+    editingMinutes = Math.max(0, Math.min(59, Math.round(el.scrollTop / WHEEL_ITEM_HEIGHT)));
+  }
+
+  function handleSecWheelScroll(e: Event) {
+    const el = e.currentTarget as HTMLDivElement;
+    editingSeconds = Math.max(0, Math.min(59, Math.round(el.scrollTop / WHEEL_ITEM_HEIGHT)));
+  }
+
+  $effect(() => {
+    if (!editingRow || editingRow.kind !== 'time') return;
+    const min = minWheelEl;
+    const sec = secWheelEl;
+    if (!min || !sec) return;
+    untrack(() => {
+      min.scrollTop = editingMinutes * WHEEL_ITEM_HEIGHT;
+      sec.scrollTop = editingSeconds * WHEEL_ITEM_HEIGHT;
+    });
+  });
 
   function presetStats(p: TimerPreset): { left: { label: string; value: string }[]; right: { label: string; value: string }[] } {
     if (p.timerFormat === 'tabata') {
@@ -298,6 +337,11 @@
     tabata = { ...DEFAULT_TABATA_PARAMS, ...p.tabata };
     emom = { ...DEFAULT_EMOM_PARAMS, ...p.emom };
     amrap = { ...DEFAULT_AMRAP_PARAMS, ...p.amrap };
+  }
+
+  function runPreset(p: TimerPreset) {
+    applyPreset(p);
+    start();
   }
 
   async function savePreset() {
@@ -452,7 +496,10 @@
                     {#if presetMatches(p)}✓{/if}
                   </button>
                 </div>
-                <button class="workout-delete" onclick={() => deletePreset(p)}>Elimina</button>
+                <div class="workout-actions">
+                  <button class="workout-delete" onclick={() => deletePreset(p)}>Elimina</button>
+                  <button class="workout-play" onclick={() => runPreset(p)}>▶ Avvia</button>
+                </div>
               </div>
             {/each}
           </div>
@@ -533,7 +580,33 @@
         <div class="handle-bar"></div>
         <h2>{editingRow.title}</h2>
         <p class="sheet-subtitle">{editingRow.subtitle}</p>
-        <input type="number" min="0" bind:value={editingValue} />
+        {#if editingRow.kind === 'time'}
+          <div class="wheel-frame">
+            <div class="wheel-highlight"></div>
+            <div class="wheel-group">
+              <div class="wheel" bind:this={minWheelEl} onscroll={handleMinWheelScroll}>
+                <div class="wheel-pad"></div>
+                {#each wheelNumbers as n}
+                  <div class="wheel-item" class:selected={n === editingMinutes}>{String(n).padStart(2, '0')}</div>
+                {/each}
+                <div class="wheel-pad"></div>
+              </div>
+              <span class="wheel-unit">MIN</span>
+            </div>
+            <div class="wheel-group">
+              <div class="wheel" bind:this={secWheelEl} onscroll={handleSecWheelScroll}>
+                <div class="wheel-pad"></div>
+                {#each wheelNumbers as n}
+                  <div class="wheel-item" class:selected={n === editingSeconds}>{String(n).padStart(2, '0')}</div>
+                {/each}
+                <div class="wheel-pad"></div>
+              </div>
+              <span class="wheel-unit">SEC</span>
+            </div>
+          </div>
+        {:else}
+          <input type="number" min="0" bind:value={editingCount} />
+        {/if}
         <button class="btn-confirm" onclick={confirmEdit}>Fatto</button>
       </div>
     </div>
@@ -913,14 +986,30 @@
     color: #fff;
   }
 
+  .workout-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
   .workout-delete {
-    align-self: flex-start;
     background: transparent;
     border: none;
     color: #f26d6d;
     font-size: 12px;
     font-weight: 700;
     padding: 2px 0;
+  }
+
+  .workout-play {
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .footer {
@@ -988,5 +1077,73 @@
     font-weight: 700;
     font-size: 15px;
     margin-top: 6px;
+  }
+
+  .wheel-frame {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    height: 220px;
+  }
+
+  .wheel-highlight {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 88px;
+    height: 44px;
+    background: var(--bg-navbar);
+    border-radius: var(--radius-sm);
+    pointer-events: none;
+  }
+
+  .wheel-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .wheel {
+    height: 220px;
+    width: 64px;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .wheel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .wheel-pad {
+    height: 88px;
+  }
+
+  .wheel-item {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    scroll-snap-align: center;
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wheel-item.selected {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+  }
+
+  .wheel-unit {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
   }
 </style>

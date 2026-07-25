@@ -86,6 +86,14 @@
     wakeLock.release();
   }
 
+  function handlePauseToggle() {
+    if (snapshot.running) {
+      engine.pause();
+    } else {
+      engine.resume();
+    }
+  }
+
   function handleExit() {
     wakeLock.release();
     onExit();
@@ -123,7 +131,12 @@
       </div>
     {/if}
 
-    <button class="btn-stop" onclick={handleStop}>■ Stop</button>
+    <div class="controls-row">
+      <button class="btn-pause" onclick={handlePauseToggle}>
+        {snapshot.running ? '⏸ Pausa' : '▶ Riprendi'}
+      </button>
+      <button class="btn-stop" onclick={handleStop}>■ Stop</button>
+    </div>
   {/if}
 </div>
 
@@ -206,10 +219,27 @@
     font-weight: 700;
   }
 
-  .btn-stop {
+  .controls-row {
     margin-top: 24px;
     width: 100%;
     max-width: 360px;
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn-pause {
+    flex: 1;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 15px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .btn-stop {
+    flex: 1;
     background: transparent;
     border: 1px solid #f26d6d;
     border-radius: var(--radius-md);

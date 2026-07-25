@@ -88,6 +88,7 @@ export class TimerEngine {
   private cued = new Set<number | string>();
   private intervalHandle: ReturnType<typeof setInterval> | null = null;
   private completionAnnounced = false;
+  private pausedRemaining: number | null = null;
 
   constructor(phases: TimerPhase[], announce: AnnounceSettings, audio: TimerAudio, onUpdate: (snap: EngineSnapshot) => void) {
     this.phases = phases;
@@ -112,6 +113,25 @@ export class TimerEngine {
     if (this.intervalHandle) clearInterval(this.intervalHandle);
     this.intervalHandle = null;
     if ('speechSynthesis' in window) speechSynthesis.cancel();
+    this.emit(this.currentRemaining());
+  }
+
+  pause() {
+    if (!this.running || this.finished) return;
+    this.pausedRemaining = this.currentRemaining();
+    this.running = false;
+    if (this.intervalHandle) clearInterval(this.intervalHandle);
+    this.intervalHandle = null;
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    this.emit(this.pausedRemaining);
+  }
+
+  resume() {
+    if (this.running || this.finished || this.pausedRemaining === null) return;
+    this.phaseEndTime = Date.now() + this.pausedRemaining * 1000;
+    this.pausedRemaining = null;
+    this.running = true;
+    this.intervalHandle = setInterval(() => this.tick(), 200);
     this.emit(this.currentRemaining());
   }
 
