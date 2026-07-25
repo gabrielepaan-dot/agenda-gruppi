@@ -176,6 +176,19 @@
       get: () => tabata.cycles,
       set: (v) => (tabata.cycles = v),
     },
+    ...((circuit?.exerciseIds.length ?? 0) === 0
+      ? [
+          {
+            key: 'genericRounds',
+            color: '#C4FF4D',
+            title: 'Round',
+            subtitle: 'Quanti round per ciclo',
+            kind: 'count' as const,
+            get: () => tabata.genericRounds,
+            set: (v: number) => (tabata.genericRounds = v),
+          },
+        ]
+      : []),
     {
       key: 'restBc',
       color: '#F2C94C',

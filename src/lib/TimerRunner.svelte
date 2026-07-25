@@ -61,7 +61,14 @@
   });
 
   const totalCycles = config.timerFormat === 'tabata' ? config.tabata.cycles : 0;
-  const totalRounds = config.timerFormat === 'tabata' ? config.exerciseIds.length : config.timerFormat === 'emom' ? config.emom.rounds : 0;
+  const totalRounds =
+    config.timerFormat === 'tabata'
+      ? config.exerciseIds.length > 0
+        ? config.exerciseIds.length
+        : Math.max(1, config.tabata.genericRounds ?? 8)
+      : config.timerFormat === 'emom'
+        ? config.emom.rounds
+        : 0;
 
   const roundsRemaining = $derived.by(() => {
     if (totalRounds === 0) return 0;

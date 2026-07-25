@@ -36,6 +36,7 @@ export interface TabataParams {
   restSeconds: number;
   cycles: number;
   restBetweenCyclesSeconds: number;
+  genericRounds: number;
 }
 
 export interface EmomParams {
@@ -55,6 +56,7 @@ export const DEFAULT_TABATA_PARAMS: TabataParams = {
   restSeconds: 10,
   cycles: 3,
   restBetweenCyclesSeconds: 60,
+  genericRounds: 8,
 };
 
 export const DEFAULT_EMOM_PARAMS: EmomParams = {

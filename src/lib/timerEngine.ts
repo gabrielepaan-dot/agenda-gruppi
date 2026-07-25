@@ -27,7 +27,7 @@ export function buildTimeline(circuit: Pick<Circuit, 'timerFormat' | 'tabata' | 
 
 function buildTabataTimeline(exerciseIds: number[], params: Circuit['tabata']): TimerPhase[] {
   const phases: TimerPhase[] = [{ kind: 'prepare', durationSeconds: params.prepareSeconds ?? DEFAULT_PREPARE_SECONDS }];
-  const n = exerciseIds.length;
+  const n = exerciseIds.length > 0 ? exerciseIds.length : Math.max(1, params.genericRounds ?? 8);
   for (let cycle = 0; cycle < params.cycles; cycle++) {
     for (let round = 0; round < n; round++) {
       phases.push({
