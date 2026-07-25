@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home — stile Diario Allenamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:#0b0b0d; font-family:'Inter',sans-serif; padding:40px 20px;
+    display:flex; justify-content:center;
+  }
+  .phone{
+    width:390px; height:820px; border-radius:40px; border:6px solid #000;
+    overflow:hidden; position:relative; box-shadow:0 30px 80px rgba(0,0,0,.6);
+    background:#15171C; color:#F2F1ED; display:flex; flex-direction:column;
+  }
+  .statusbar{height:30px; flex-shrink:0;}
+
+  .topbar{
+    padding:14px 20px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .topbar h1{font-size:22px; font-weight:800;}
+  .topbar .status{
+    display:flex; align-items:center; gap:8px; font-size:13px; color:#8B8F97;
+  }
+  .status .dot{width:9px; height:9px; border-radius:50%; background:#4CAF7D;}
+
+  .cta{
+    margin:0 20px 22px;
+    background:#E8622C;
+    color:#fff;
+    font-weight:700;
+    font-size:16px;
+    text-align:center;
+    padding:15px;
+    border-radius:14px;
+  }
+
+  .content{flex:1; overflow-y:auto; padding-bottom:90px;}
+
+  .pill-row{
+    display:flex; align-items:center; gap:10px;
+    padding:0 20px; margin-bottom:12px;
+  }
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:7px 14px;
+    border-radius:20px;
+    font-size:13px; font-weight:700;
+    color:#fff;
+  }
+  .pill.corda{background:#3B6FA0;}
+  .pill.time{background:#2A2D34; color:#B8BCC4; font-weight:600;}
+
+  .card{
+    margin:0 20px 14px;
+    background:#1D2026;
+    border-radius:16px;
+    padding:16px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .card .left .name{font-size:17px; font-weight:700;}
+  .card .left .sub{font-size:14px; color:#8B8F97; margin-top:3px;}
+  .card .icons{display:flex; gap:14px; color:#5FB8C9;}
+
+  .section-label{
+    padding:22px 20px 10px;
+    font-size:13px; font-weight:700; color:#8B8F97;
+  }
+
+  .warmup-card{
+    margin:0 20px 14px;
+    background:#1D2026;
+    border-radius:16px;
+    padding:16px 18px;
+  }
+  .warmup-card .name{font-size:17px; font-weight:700;}
+  .warmup-card .sub{font-size:14px; color:#8B8F97; margin-top:3px; font-style:italic;}
+
+  .circuit-card{
+    margin:0 20px 14px;
+    background:#1D2026;
+    border-radius:16px;
+    padding:16px 18px;
+  }
+  .circuit-top{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
+  .fmt-pill{
+    padding:4px 10px; border-radius:8px; font-size:11px; font-weight:800;
+    letter-spacing:.03em; text-transform:uppercase; color:#111;
+  }
+  .circuit-card .name{font-size:17px; font-weight:700;}
+  .circuit-card .sub{font-size:14px; color:#8B8F97; margin-top:3px;}
+
+  .navbar{
+    position:absolute; bottom:0; left:0; right:0; height:80px;
+    background:#1A1C21; border-top:1px solid #262930;
+    display:flex; align-items:center; justify-content:space-around;
+    padding-bottom:12px;
+  }
+  .nav-item{
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+    color:#7A7E86; font-size:12px; font-weight:600;
+  }
+  .nav-item.active{color:#E8622C;}
+  .nav-icon{width:22px; height:22px; border-radius:6px; background:currentColor; opacity:.85;}
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="statusbar"></div>
+
+  <div class="topbar">
+    <h1>Agenda</h1>
+    <div class="status"><span class="dot"></span>oggi</div>
+  </div>
+
+  <div class="cta">▶ Avvia sessione di oggi</div>
+
+  <div class="content">
+
+    <div class="pill-row">
+      <span class="pill corda">Intermedi Corda</span>
+      <span class="pill time">18:00–19:30</span>
+    </div>
+
+    <div class="card">
+      <div class="left">
+        <div class="name">Ultima volta</div>
+        <div class="sub">Tabata 8 stazioni, poi trazioni e repeaters</div>
+      </div>
+    </div>
+
+    <div class="section-label">Riscaldamento</div>
+    <div class="warmup-card">
+      <div class="name">Da definire</div>
+      <div class="sub">Mobilità spalle + salita facile</div>
+    </div>
+
+    <div class="section-label">Circuiti di oggi</div>
+
+    <div class="circuit-card">
+      <div class="circuit-top">
+        <span class="fmt-pill" style="background:#C4FF4D">Tabata</span>
+      </div>
+      <div class="name">Circuito Trazioni</div>
+      <div class="sub">8 esercizi · 20″/10″ · x3 cicli</div>
+    </div>
+
+    <div class="circuit-card">
+      <div class="circuit-top">
+        <span class="fmt-pill" style="background:#5FB8C9">Emom</span>
+      </div>
+      <div class="name">Repeaters Dita</div>
+      <div class="sub">ogni 1'00" · x8 round</div>
+    </div>
+
+  </div>
+
+  <div class="navbar">
+    <div class="nav-item active"><div class="nav-icon"></div>Oggi</div>
+    <div class="nav-item"><div class="nav-icon"></div>Agenda</div>
+    <div class="nav-item"><div class="nav-icon"></div>Eserciziario</div>
+  </div>
+</div>
+
+</body>
+</html>

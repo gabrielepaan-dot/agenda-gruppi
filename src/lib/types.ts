@@ -1,0 +1,94 @@
+export type PatternCategory =
+  | 'spinta'
+  | 'trazione'
+  | 'verticale'
+  | 'orizzontale'
+  | 'spinta_gambe'
+  | 'tirata_gambe'
+  | 'core'
+  | 'accessori'
+  | 'mobilita'
+  | 'multiarticolare';
+
+export const PATTERN_CATEGORIES: PatternCategory[] = [
+  'spinta',
+  'trazione',
+  'verticale',
+  'orizzontale',
+  'spinta_gambe',
+  'tirata_gambe',
+  'core',
+  'accessori',
+  'mobilita',
+  'multiarticolare',
+];
+
+export const PATTERN_CATEGORY_LABELS: Record<PatternCategory, string> = {
+  spinta: 'Spinta',
+  trazione: 'Trazione',
+  verticale: 'Verticale',
+  orizzontale: 'Orizzontale',
+  spinta_gambe: 'Spinta gambe',
+  tirata_gambe: 'Tirata gambe',
+  core: 'Core',
+  accessori: 'Accessori',
+  mobilita: 'Mobilità/allungamento',
+  multiarticolare: 'Multiarticolare/Total body',
+};
+
+export const PATTERN_CATEGORY_COLORS: Record<PatternCategory, { bg: string; text: string }> = {
+  spinta: { bg: '#F26D6D', text: '#fff' },
+  trazione: { bg: '#3B6FA0', text: '#fff' },
+  verticale: { bg: '#5FB8C9', text: '#111' },
+  orizzontale: { bg: '#9B7EDE', text: '#fff' },
+  spinta_gambe: { bg: '#4CAF7D', text: '#111' },
+  tirata_gambe: { bg: '#C4FF4D', text: '#111' },
+  core: { bg: '#F2A93B', text: '#111' },
+  accessori: { bg: '#7A8CFF', text: '#fff' },
+  mobilita: { bg: '#4DD0C4', text: '#111' },
+  multiarticolare: { bg: '#E091C9', text: '#111' },
+};
+
+export type CoreSubcategory = 'antiflessione_frontale' | 'antiflessione_laterale' | 'antirotazione';
+
+export const CORE_SUBCATEGORIES: CoreSubcategory[] = [
+  'antiflessione_frontale',
+  'antiflessione_laterale',
+  'antirotazione',
+];
+
+export const CORE_SUBCATEGORY_LABELS: Record<CoreSubcategory, string> = {
+  antiflessione_frontale: 'Antiflessione frontale',
+  antiflessione_laterale: 'Antiflessione laterale',
+  antirotazione: 'Antirotazione',
+};
+
+export type Quality = 'forza' | 'potenza';
+
+export const QUALITIES: Quality[] = ['forza', 'potenza'];
+
+export const QUALITY_LABELS: Record<Quality, string> = {
+  forza: 'Forza',
+  potenza: 'Potenza',
+};
+
+export interface Exercise {
+  id?: number;
+  name: string;
+  category: PatternCategory;
+  coreSubcategory?: CoreSubcategory;
+  quality?: Quality;
+}
+
+export type VoiceRecordingTarget =
+  | { type: 'exercise'; exerciseId: number }
+  | { type: 'phrase'; phraseKey: string };
+
+export interface VoiceRecording {
+  id?: number;
+  targetType: 'exercise' | 'phrase';
+  exerciseId?: number;
+  phraseKey?: string;
+  audioBlob: Blob;
+  createdAt: number;
+}
