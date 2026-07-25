@@ -2,7 +2,7 @@
   import { db } from './db';
   import type { VoiceRecording } from './types';
 
-  type Target = { type: 'exercise'; exerciseId: number } | { type: 'phrase'; phraseKey: string };
+  type Target = { type: 'exercise'; exerciseId: number } | { type: 'phrase'; phraseKey: string; profileId: number };
 
   let { target }: { target: Target } = $props();
 
@@ -18,7 +18,10 @@
     if (target.type === 'exercise') {
       existing = (await db.voiceRecordings.where({ targetType: 'exercise', exerciseId: target.exerciseId }).first()) ?? null;
     } else {
-      existing = (await db.voiceRecordings.where({ targetType: 'phrase', phraseKey: target.phraseKey }).first()) ?? null;
+      existing =
+        (await db.voiceRecordings
+          .where({ targetType: 'phrase', phraseKey: target.phraseKey, profileId: target.profileId })
+          .first()) ?? null;
     }
   }
 
@@ -59,7 +62,13 @@
     const record: VoiceRecording =
       target.type === 'exercise'
         ? { targetType: 'exercise', exerciseId: target.exerciseId, audioBlob: blob, createdAt: Date.now() }
-        : { targetType: 'phrase', phraseKey: target.phraseKey, audioBlob: blob, createdAt: Date.now() };
+        : {
+            targetType: 'phrase',
+            phraseKey: target.phraseKey,
+            profileId: target.profileId,
+            audioBlob: blob,
+            createdAt: Date.now(),
+          };
     await db.voiceRecordings.add(record);
     await load();
   }

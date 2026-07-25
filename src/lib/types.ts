@@ -82,13 +82,20 @@ export interface Exercise {
 
 export type VoiceRecordingTarget =
   | { type: 'exercise'; exerciseId: number }
-  | { type: 'phrase'; phraseKey: string };
+  | { type: 'phrase'; phraseKey: string; profileId: number };
 
 export interface VoiceRecording {
   id?: number;
   targetType: 'exercise' | 'phrase';
   exerciseId?: number;
   phraseKey?: string;
+  profileId?: number;
   audioBlob: Blob;
+  createdAt: number;
+}
+
+export interface VoiceProfile {
+  id?: number;
+  name: string;
   createdAt: number;
 }

@@ -7,7 +7,6 @@
     TIPOLOGIA_LABELS,
     TIMER_FORMATS,
     TIMER_FORMAT_LABELS,
-    REST_TYPE_LABELS,
     DEFAULT_TABATA_PARAMS,
     DEFAULT_EMOM_PARAMS,
     DEFAULT_AMRAP_PARAMS,
@@ -15,7 +14,6 @@
     type CircuitOwnerType,
     type Tipologia,
     type TimerFormat,
-    type RestType,
     type TabataParams,
     type EmomParams,
     type AmrapParams,
@@ -40,9 +38,9 @@
   let name = $state(circuit?.name ?? '');
   let tipologia = $state<Tipologia>(circuit?.tipologia ?? 'forza');
   let timerFormat = $state<TimerFormat>(circuit?.timerFormat ?? 'tabata');
-  let tabata = $state<TabataParams>({ ...(circuit?.tabata ?? DEFAULT_TABATA_PARAMS) });
-  let emom = $state<EmomParams>({ ...(circuit?.emom ?? DEFAULT_EMOM_PARAMS) });
-  let amrap = $state<AmrapParams>({ ...(circuit?.amrap ?? DEFAULT_AMRAP_PARAMS) });
+  let tabata = $state<TabataParams>({ ...DEFAULT_TABATA_PARAMS, ...circuit?.tabata });
+  let emom = $state<EmomParams>({ ...DEFAULT_EMOM_PARAMS, ...circuit?.emom });
+  let amrap = $state<AmrapParams>({ ...DEFAULT_AMRAP_PARAMS, ...circuit?.amrap });
   let error = $state('');
   let pickerOpen = $state(false);
 
@@ -209,57 +207,54 @@
     {#if timerFormat === 'tabata'}
       <div class="params-grid">
         <label class="field small">
+          <span>Prepara (sec)</span>
+          <input type="number" min="0" bind:value={tabata.prepareSeconds} />
+        </label>
+        <label class="field small">
           <span>Lavoro (sec)</span>
           <input type="number" min="1" bind:value={tabata.workSeconds} />
         </label>
+      </div>
+      <div class="params-grid">
         <label class="field small">
           <span>Riposo (sec)</span>
           <input type="number" min="0" bind:value={tabata.restSeconds} />
         </label>
-      </div>
-      <label class="field">
-        <span>Tipo di riposo</span>
-        <div class="radio-group">
-          {#each Object.entries(REST_TYPE_LABELS) as [value, label]}
-            <label class="radio-option">
-              <input
-                type="radio"
-                name="restType"
-                value={value}
-                checked={tabata.restType === value}
-                onchange={() => (tabata.restType = value as RestType)}
-              />
-              {label}
-            </label>
-          {/each}
-        </div>
-      </label>
-      <div class="params-grid">
         <label class="field small">
           <span>Cicli</span>
           <input type="number" min="1" bind:value={tabata.cycles} />
         </label>
-        <label class="field small">
-          <span>Riposo tra cicli (sec)</span>
-          <input type="number" min="0" bind:value={tabata.restBetweenCyclesSeconds} />
-        </label>
       </div>
+      <label class="field small">
+        <span>Riposo tra cicli (sec)</span>
+        <input type="number" min="0" bind:value={tabata.restBetweenCyclesSeconds} />
+      </label>
     {:else if timerFormat === 'emom'}
       <div class="params-grid">
+        <label class="field small">
+          <span>Prepara (sec)</span>
+          <input type="number" min="0" bind:value={emom.prepareSeconds} />
+        </label>
         <label class="field small">
           <span>Intervallo (sec)</span>
           <input type="number" min="1" bind:value={emom.intervalSeconds} />
         </label>
+      </div>
+      <label class="field small">
+        <span>Round</span>
+        <input type="number" min="1" bind:value={emom.rounds} />
+      </label>
+    {:else}
+      <div class="params-grid">
         <label class="field small">
-          <span>Round</span>
-          <input type="number" min="1" bind:value={emom.rounds} />
+          <span>Prepara (sec)</span>
+          <input type="number" min="0" bind:value={amrap.prepareSeconds} />
+        </label>
+        <label class="field small">
+          <span>Tempo limite (sec)</span>
+          <input type="number" min="1" bind:value={amrap.timeLimitSeconds} />
         </label>
       </div>
-    {:else}
-      <label class="field">
-        <span>Tempo limite (sec)</span>
-        <input type="number" min="1" bind:value={amrap.timeLimitSeconds} />
-      </label>
     {/if}
 
     {#if error}
@@ -495,21 +490,6 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
-  }
-
-  .radio-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .radio-option {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text);
   }
 
   .error {

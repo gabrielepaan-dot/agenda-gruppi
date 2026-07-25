@@ -1,56 +1,141 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. It documents the **current state** of the app so a fresh session doesn't need to re-explore the codebase from scratch. See section 9 for the rule on keeping it that way.
 
 ## Project
 
-Agenda Gruppi — a local-only PWA (packaged as a native Android app via Capacitor) for a climbing coach to plan and run group training sessions, with an integrated gym timer (Tabata/EMOM/AMRAP) featuring hybrid voice/beep audio. Single user, Android phone only, Italian UI, no backend/account/cloud — all data lives in IndexedDB on-device. The full functional spec is in `spec-agenda-gruppi.md` — read it before making product decisions; it is the source of truth for scope.
+Agenda Gruppi — a local-only PWA (also packaged as a native Android app via Capacitor) for a climbing coach to plan and run group training sessions, with an integrated gym timer (Tabata/EMOM/AMRAP) featuring hybrid voice/beep audio. Single user, Android phone only, Italian UI, no backend/account/cloud — all data lives in IndexedDB on-device. The full functional spec is `spec-agenda-gruppi.md` in the repo root — it is the source of truth for scope, but a few implementation details have since diverged from it (flagged in section 7).
 
-## Commands
+## 1. Stack tecnico
+
+- **Svelte 5** in runes mode (`$state`, `$derived`, `$props`, `$derived.by` — no legacy `export let`/stores) + **TypeScript** + **Vite 8**.
+- **Dexie** (`src/lib/db.ts`) wraps IndexedDB; schema is versioned via `db.version(n).stores(...)`, with one `.upgrade()` migration so far (v6).
+- **svelte-dnd-action** for drag-to-reorder exercises within a circuit (`CircuitForm.svelte`).
+- **Capacitor** (`@capacitor/core`, `@capacitor/android`) wraps the built web app into a native Android shell; native project lives in `android/`.
+- **@fontsource/inter** bundled locally (not Google Fonts CDN) — the app must work with zero connectivity in the gym.
+- No component-framework routing — `src/App.svelte` just switches between top-level screens by tab state (`$state<NavTab>`).
+- No automated test suite. Verification is done by driving the Vite dev server (or the deployed preview) in a browser and inspecting IndexedDB/console directly.
+
+### Commands
 
 ```bash
-npm run dev        # Vite dev server
-npm run build       # production build to dist/
-npm run preview     # serve the production build locally
-npm run check       # svelte-check + tsc --noEmit (no test suite exists in this project)
-npm run cap:sync    # build + copy dist/ into the Capacitor Android project
-npm run cap:open    # open the Android project in Android Studio
+npm run dev         # Vite dev server
+npm run build        # production build to dist/
+npm run preview      # serve the production build locally
+npm run check        # svelte-check + tsc --noEmit (no test suite exists)
+npm run cap:sync     # build + copy dist/ into the Capacitor Android project
+npm run cap:open     # open the Android project in Android Studio
 ```
 
-There is no automated test suite — verification during development has been done by driving the Vite dev server in a browser and inspecting IndexedDB state directly.
+The Android native project does **not** read from the source tree live — `npm run cap:sync` must be run (copies `dist/` into `android/app/src/main/assets/public`) before rebuilding in Android Studio.
 
-The Android native project lives in `android/`. After any change to the web app, `npm run cap:sync` must be run before rebuilding in Android Studio — Capacitor copies a static snapshot of `dist/` into `android/app/src/main/assets/public`, it does not read from the source tree live.
+### Deploy (Cloudflare Pages)
 
-## Architecture
+The repo is pushed to GitHub (`github.com/gabrielepaan-dot/agenda-gruppi`) and connected to **Cloudflare Pages** for automatic deploys: every push to `master` triggers a build (`npm run build`, output dir `dist`, `NODE_VERSION=22`) and publishes to `agenda-gruppi.pages.dev`. This is the fast iteration loop for bugfixing from the phone — open the URL in Chrome, "Add to Home Screen" for a PWA-like icon, reload after each deploy. No Capacitor rebuild needed for this loop; the APK is only for final/offline-verified installs. **Caveat**: data entered via the `.pages.dev` PWA lives in that browser's IndexedDB — it does **not** sync with the native APK's storage, they're separate origins/storage buckets.
 
-Svelte 5 (runes mode: `$state`, `$derived`, `$props`, no legacy stores/`export let`) + TypeScript + Vite. Dexie wraps IndexedDB (`src/lib/db.ts`, schema versioned via `db.version(n).stores(...)`). No component framework routing — `src/App.svelte` just switches between four top-level screens by tab state.
+## 2. Architettura generale
 
-### Ownership model: Circuit is not a standalone entity
+```
+src/
+  App.svelte              — tab switcher (5 tabs), renders BottomNav
+  app.css                  — global CSS variables (dark theme), reset
+  main.ts                  — Svelte app mount
+  lib/
+    db.ts                  — Dexie instance + schema versions
+    groups.ts              — hardcoded groups + weekly schedule
+    types.ts                — Exercise + VoiceRecording/VoiceProfile types
+    circuitTypes.ts         — Circuit, TimerFormat params, Tipologia
+    sessionTypes.ts         — Session type
+    standardTypes.ts        — StandardCategory/StandardVariant types
+    circuitService.ts       — owner-agnostic circuit CRUD helpers
+    sessionService.ts       — session duplication / auto-provisioning
+    standardService.ts      — apply variant ↔ session conversions
+    timerEngine.ts          — TimerPhase timeline builder + TimerEngine class
+    timerAudio.ts           — TimerAudio class (beep/TTS/recording playback)
+    wakeLock.ts              — WakeLockManager (keep screen on during timer)
+    BottomNav.svelte         — 5-tab nav bar
+    Oggi.svelte              — screen: today's session
+    Agenda.svelte            — screen: flat chronological session list
+    AllenamentiStandard.svelte — screen: standard workout library (3-level drill-down)
+    Eserciziario.svelte      — screen: exercise list
+    Timer.svelte             — screen/component: standalone timer setup + per-circuit launcher
+    SessionEditor.svelte     — full-screen editor for one Session
+    StandardVariantEditor.svelte — full-screen editor for one StandardVariant
+    CircuitForm.svelte       — full-screen editor for one Circuit (shared by both owners)
+    ExerciseForm.svelte      — bottom-sheet editor for one Exercise
+    TimerRunner.svelte       — full-screen running timer (the actual countdown UI)
+    VoiceRecorder.svelte     — generic record/play/delete widget (MediaRecorder)
+    VoiceProfiles.svelte     — manage named voice profiles + their phrase recordings
+android/                   — Capacitor native Android project (build artifacts gitignored)
+spec-agenda-gruppi.md       — product spec, source of truth for scope
+home-diario-style.html      — visual reference mockup (antracite/rounded/pill style)
+```
 
-The single most important structural fact about this codebase: **`Circuit` (src/lib/circuitTypes.ts) has no independent list/library screen.** A circuit always belongs to an owner — `ownerType: 'session' | 'variant'` + `ownerId` — and is created/edited inline from within whatever owns it (`SessionEditor.svelte` or `StandardVariantEditor.svelte`, both embedding `CircuitForm.svelte`). This is because `Session` (a planned day for a group) and `StandardVariant` (a reusable template in the Allenamenti Standard library) are structurally identical containers — warmup text + ordered circuits + notes — so circuits are shared plumbing between the two, not a feature of either one specifically.
+## 3. Navigazione
 
-This is why `src/lib/circuitService.ts` exists as a small owner-agnostic layer (`getCircuitsFor`, `deleteCircuitsFor`, `copyCircuits`) used by both `sessionService.ts` (duplicating a session to next week, auto-provisioning "today") and `standardService.ts` (applying a variant to today's session, saving a session as a new variant). When adding a new feature that touches circuits, go through `circuitService.ts` rather than querying `db.circuits` directly, to keep the owner-type filtering consistent (the Dexie index is a compound `[ownerType+ownerId]`).
+Bottom nav has **5 tabs** (`BottomNav.svelte`): Oggi, Agenda, Timer, Standard, Esercizi. (`spec-agenda-gruppi.md` still says "4 voci" — that line is stale, see section 7.)
 
-### Groups and schedule are hardcoded
+- **Oggi** (`Oggi.svelte`) — auto-detects today's group(s) via `slotsForDate`; on "double days" (Wed/Thu) shows a pill switcher between the day's two groups, never both at once. Auto-provisions today's `Session` via `ensureSessionForDate` (duplicates the most recent past session for that group if one exists, else creates an empty one). Shows the "last time" card, warmup preview, and circuit list; tapping anything opens `SessionEditor`. Read-mostly — all editing is delegated. **Limitation**: only ever operates on *today's* date, no date picker.
+- **Agenda** (`Agenda.svelte`) — flat, reverse-chronological list of **all** sessions across all groups, today's entry highlighted. Tapping opens `SessionEditor`. **Limitation**: no way to create a session for an arbitrary future date from here — sessions only come into being via Oggi's auto-provisioning or via "duplicate to next week" from inside an existing session.
+- **Timer** (`Timer.svelte`, embedded mode) — standalone timer: pick format (Tabata/EMOM/AMRAP), edit intervals via tap-to-open bottom sheets, save/apply/delete reusable `TimerPreset`s ("I miei workout"), pick voice (system TTS voice or a `VoiceProfile`) and announce toggles, then "Avvia" → `TimerRunner`. The same component is reused **non-embedded** as a per-circuit launcher (opened from the ▶ button in `SessionEditor`/`StandardVariantEditor`) — in that mode format/params are read-only (they come from the `Circuit`), only voice/announce settings remain editable. CRUD-complete for `TimerPreset`s only in standalone mode.
+- **Standard** (`AllenamentiStandard.svelte`) — 3-level drill-down: group → category → variant (categories are per-group, not shared). CRUD-complete on categories (delete cascades to their variants + circuits) and variants (create empty, or via "save current session as variant"; edit via `StandardVariantEditor`; delete cascades circuits). "Applica a Oggi" copies a variant's content into today's session for that group. **Limitation**: categories/variants can't be manually reordered (only circuits inside a variant can).
+- **Esercizi** (`Eserciziario.svelte`) — flat list grouped by pattern category, FAB to add, tap to edit via `ExerciseForm` (name, category, Core subcategory if applicable, optional quality, voice recording). CRUD-complete. Deleting an exercise removes its voice recording but leaves the dangling id in any circuit's `exerciseIds` — shown as `—` wherever the name is looked up (matches the spec's "disappears from history silently" intent). **Note**: the old settings-gear entry point to a phrase/voice library is gone from this screen — voice profile management moved to the Timer screen (see section 7).
 
-`src/lib/groups.ts` hardcodes the 4 groups (id, display name, color) and the weekly schedule (`WEEKLY_SCHEDULE`: weekday → ordered list of group slots — Wed/Thu each have two groups back-to-back). There is intentionally no editor for this; it's out of scope per the spec. `slotsForDate`/`slotsForWeekday` are the lookup used by `Oggi.svelte` to know which group(s) are active on a given day, including the "double day" case where the coach switches between two sessions without seeing them simultaneously.
+## 4. Schema dati (Dexie / `src/lib/db.ts`)
 
-### Timer engine is timestamp-driven, not tick-counted
+| Table | Key fields | Notes |
+|---|---|---|
+| `exercises` | `name`, `category` (PatternCategory), `coreSubcategory?`, `quality?` (forza/potenza) | indexed on `name`, `category` |
+| `voiceRecordings` | `targetType` ('exercise'\|'phrase'), `exerciseId?`, `phraseKey?`, `profileId?`, `audioBlob`, `createdAt` | exercise recordings are **global** (one per exercise); phrase recordings are scoped per `(phraseKey, profileId)` pair |
+| `voiceProfiles` | `name`, `createdAt` | a named "voice" (e.g. a person) owning a set of the 4 fixed-phrase recordings |
+| `circuits` | `ownerType` ('session'\|'variant'), `ownerId`, `order`, `name`, `tipologia`, `exerciseIds[]`, `timerFormat`, `tabata`, `emom`, `amrap` | compound index `[ownerType+ownerId]`; `ownerId` is a loose reference (no Dexie FK) into `sessions.id` or `standardVariants.id` |
+| `timerPresets` | `name`, `timerFormat`, `tabata`, `emom`, `amrap` | standalone saved workout configs, unrelated to any circuit/session |
+| `sessions` | `date` (YYYY-MM-DD), `groupId`, `warmup`, `notes` | indexed `date`, `groupId` |
+| `standardCategories` | `groupId`, `name` | indexed `groupId`, `name` |
+| `standardVariants` | `categoryId`, `name`, `warmup`, `notes` | indexed `categoryId`, `name` |
 
-`src/lib/timerEngine.ts` builds a flat `TimerPhase[]` timeline upfront per format (`buildTabataTimeline`/`buildEmomTimeline`/`buildAmrapTimeline`), then `TimerEngine` steps through it on a `setInterval`, computing remaining time from an absolute `phaseEndTime` timestamp each tick (not decrementing a counter) to avoid drift. Audio cueing logic (triple-beep vs. spoken phrase/exercise name, replacing rather than overlapping) lives in the same class — see the code comments around `maybeCue`/`speakUpcoming`/`announceCompletion` before changing phase transitions, the completion-announcement fallback (Tabata always ends on a `work` phase with no trailing cue window, unlike EMOM/AMRAP) is easy to accidentally break. `src/lib/timerAudio.ts` handles the actual audio: synthesized beep via Web Audio, TTS via Web Speech API, with a hybrid lookup (personal `VoiceRecording` in IndexedDB first, else TTS) for phrases and exercise names.
+**Relations**: `Session`/`StandardVariant` → (`ownerType`+`ownerId`) → `Circuit`; `StandardCategory` → (`categoryId`) → `StandardVariant`; `Circuit` → (`exerciseIds[]`, loose many-to-many) → `Exercise`; `VoiceRecording` → (`exerciseId` or `phraseKey`+`profileId`) → `Exercise`/`VoiceProfile`.
 
-### Screens vs. reusable editors
+**Migration history**: v1 exercises+voiceRecordings → v2 circuits → v3 timerPresets → v4 circuits gain sessionId/order, sessions table added (pre-dates the ownerType generalization) → v5 circuits generalized to `[ownerType+ownerId]`, standardCategories/standardVariants added → v6 voiceProfiles added, voiceRecordings gains `profileId`, with an `.upgrade()` that migrates any pre-existing orphaned phrase recording into a new default profile called "Voce salvata" (this is the PhraseLibrary → VoiceProfiles migration, see section 7).
 
-The four bottom-nav screens (`Oggi.svelte`, `Agenda.svelte`, `AllenamentiStandard.svelte`, `Eserciziario.svelte`, wired in `App.svelte` via `BottomNav.svelte`) are thin — they list/navigate and delegate actual editing to shared full-screen editor components: `SessionEditor.svelte`, `StandardVariantEditor.svelte`, `CircuitForm.svelte`, `ExerciseForm.svelte`, `Timer.svelte`/`TimerRunner.svelte`. `Oggi` and `Agenda` are a deliberate split of what was originally one screen: Oggi is the single-session focused view (today only, CTA-driven), Agenda is the flat scrollable chronological list of all sessions with today's entry marked — they share the same underlying `Session` data and both open `SessionEditor`.
+## 5. Moduli chiave
 
-### Known Svelte 5 + Dexie gotcha
+- **Timer engine** (`src/lib/timerEngine.ts`) — timestamp-driven, not tick-counted: `buildTabataTimeline`/`buildEmomTimeline`/`buildAmrapTimeline` build a flat `TimerPhase[]` upfront; `TimerEngine` steps through it on a 200ms `setInterval`, computing remaining time from an absolute `phaseEndTime` each tick to avoid drift. Audio cueing (`maybeCue`/`speakUpcoming`/`announceCompletion`) triple-beeps or speaks in the last `min(3, duration)` seconds of rest/rest_cycle/interval/amrap phases, replacing rather than overlapping the beep when voice is active. Tabata always ends on a `work` phase with no trailing cue window (unlike EMOM/AMRAP), handled via the `isCompletionWindow` check — easy to break when touching phase transitions.
+- **Audio** (`src/lib/timerAudio.ts`) — `TimerAudio` class: synthesized beep via Web Audio (`AudioContext` oscillator), TTS via Web Speech API (`it-IT`, optional system voice by `voiceURI`), and a hybrid lookup for phrases/exercise names that prefers a personal `VoiceRecording` (looked up by profile for phrases, globally for exercises) and falls back to TTS.
+- **Voice recording** (`VoiceRecorder.svelte`) — generic MediaRecorder-based record/play/delete widget parameterized by a `target` discriminated union (`{type:'exercise', exerciseId}` or `{type:'phrase', phraseKey, profileId}`); used inside both `ExerciseForm.svelte` and `VoiceProfiles.svelte`.
+- **Voice profiles** (`VoiceProfiles.svelte` + `voiceProfiles` table) — lets you create multiple named profiles (e.g. different people), each owning its own recording for the 4 fixed phrases (prepara/lavora/riposa/completato). Reached via a gear icon next to "Voce" inside the Timer setup screen.
+- **Timer presets** ("I miei workout", `TimerPreset` table, UI inside `Timer.svelte`) — reusable named timer configs (format+params), usable only from the standalone Timer tab; **not** wired into `CircuitForm` (see TODO).
+- **Wake lock** (`wakeLock.ts`) — `WakeLockManager` wraps the Screen Wake Lock API and re-acquires it on `visibilitychange`, since Android releases the lock when the tab backgrounds/foregrounds.
 
-`$state` objects/arrays are reactive Proxies. Passing one directly into `db.table.add()`/`.put()` throws `DataCloneError` (IndexedDB's structured clone can't serialize a Proxy) — this has bitten multiple features already (circuit save, session duplication). Always spread into plain objects/arrays (`{ ...tabata }`, `[...exerciseIds]`) immediately before any Dexie write.
+## 6. Convenzioni
 
-### Voice recording
+- Svelte 5 runes only; no `export let`/stores anywhere.
+- Discriminated unions for variant types (`VoiceRecordingTarget`, `VoiceMode`/`VoiceSelection`, `TimerPhase['kind']`).
+- Italian for all user-facing strings/labels; English for code identifiers, file names, comments.
+- Recurring pattern for any taxonomy: define the union type + a `*_LABELS: Record<T, string>` + (where relevant) a `*_COLORS: Record<T, {bg,text}|string>` together in the same `*Types.ts` file (see `circuitTypes.ts`, `types.ts`).
+- Full-screen editors (`SessionEditor`, `StandardVariantEditor`, `CircuitForm`, non-embedded `Timer`) share a `position:fixed; inset:0` "screen" shell with a topbar (✕ close + centered `<h1>`). Smaller create/edit flows (`ExerciseForm`, category/variant creation) instead use a dimmed `.overlay` + rounded-top `.sheet` bottom-sheet pattern with a handle-bar.
+- Every editor communicates via `onSaved`/`onClose`/`onDeleted` callback props — no event dispatching, no global store; the parent screen re-fetches from Dexie after the callback instead of the child mutating shared state.
+- **Known gotcha**: `$state` objects/arrays are reactive Proxies. Passing one directly into `db.table.add()`/`.put()` throws `DataCloneError`. Always spread into plain objects/arrays (`{ ...tabata }`, `[...exerciseIds]`) immediately before any Dexie write — see `circuitService.copyCircuits` and `CircuitForm.save` for the pattern.
+- Fixed dark theme only (CSS variables in `src/app.css`, no light mode / OS-preference switching).
 
-`VoiceRecorder.svelte` is a generic record/play/delete component (MediaRecorder + getUserMedia) used both inside `ExerciseForm.svelte` (per-exercise pronunciation) and `PhraseLibrary.svelte` (the three fixed timer phrases: lavora/riposa/completato). `PhraseLibrary` is reached via a settings-gear icon in `Eserciziario.svelte`'s topbar rather than its own nav tab, since the bottom nav is fixed at 4 items per spec.
+## 7. Decisioni di design prese
 
-### Styling
+- **Circuit has no standalone library/list screen.** It always belongs to an owner (`ownerType: 'session'|'variant'` + `ownerId`) and is created/edited inline from whatever owns it, because `Session` and `StandardVariant` are structurally identical containers (warmup + ordered circuits + notes). `circuitService.ts` exists purely to keep the owner-type filtering consistent across both callers.
+- **Groups and weekly schedule are hardcoded** (`groups.ts`) — intentionally out of scope for an editor per the spec.
+- **Timer engine is timestamp-driven**, not tick-counted, specifically to avoid drift over long AMRAP/EMOM durations.
+- **Voice library was redesigned mid-project**: it used to be a single fixed `PhraseLibrary.svelte` (one recording per phrase, reached from a settings gear in `Eserciziario`'s topbar). It's now `VoiceProfiles.svelte` — N named profiles × 4 phrases each — reached from the Timer setup screen instead. The `db.version(6)` upgrade migrates any pre-existing recording into a default "Voce salvata" profile so nothing is lost. Rationale (inferred from the shape of the change): support different people's voices being selectable per timer run, not just the coach's own.
+- **Bottom nav grew from 4 to 5 tabs.** Timer is now a first-class tab (standalone timer + preset library) rather than a button living inside Oggi. `spec-agenda-gruppi.md`'s "Bottom nav a 4 voci" line is stale on this point — don't treat it as current truth.
+- **Per-circuit configurable rest structure was simplified in implementation.** The spec calls for the rest type (only-between-rounds vs. also-between-exercises) to be configurable per circuit; `buildTabataTimeline` currently always inserts a `rest` phase between every exercise and a separate `rest_cycle` between cycles, with no toggle to suppress the inter-exercise rest.
+- **Exercise voice recordings are global, phrase recordings are per-profile** — an intentional asymmetry: exercise pronunciation doesn't need to vary "by coach voice" the way the four fixed cue phrases do (those exist specifically to let different people's voices run a session).
 
-Fixed dark theme only (no light mode, no OS-preference switching) — CSS variables in `src/app.css`. Font is `@fontsource/inter`, bundled locally (not loaded from Google Fonts CDN) because the app must work with zero network connectivity in the gym. Visual reference is `home-diario-style.html` in the repo root (antracite background, rounded cards, colored pills, orange accent for primary actions).
+## 8. Cosa manca / TODO noti
+
+- Timer presets aren't surfaced or auto-suggested from `CircuitForm` when picking a circuit's timer format/params, even though the spec wants "choosing a recurring block type suggests its associated timer preset automatically." `TimerPreset` currently only lives inside the standalone Timer tab, disconnected from circuit creation.
+- No per-circuit toggle for rest structure (only-between-rounds vs. also-between-exercises) — see section 7.
+- Exercise photo/video attachments — explicitly deferred in the spec ("in futuro, non ora"), not started.
+- No manual date picker to plan a session for an arbitrary future date — sessions only come into existence via `ensureSessionForDate` (today, automatic) or `duplicateSessionTo` (always the next occurrence of the same weekday).
+- No automated test suite (verification is manual, via browser + IndexedDB inspection).
+
+## 9. Manutenzione di questo file
+
+Ad ogni successiva modifica di codice, di struttura dati, o di qualsiasi altro aspetto importante del progetto, aggiorna questo file CLAUDE.md di conseguenza, prima di concludere la sessione.

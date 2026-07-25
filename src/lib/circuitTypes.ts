@@ -30,44 +30,41 @@ export const TIMER_FORMAT_COLORS: Record<TimerFormat, string> = {
   amrap: '#9B7EDE',
 };
 
-export type RestType = 'between_exercises' | 'only_between_cycles';
-
-export const REST_TYPE_LABELS: Record<RestType, string> = {
-  between_exercises: 'Riposo dopo ogni esercizio',
-  only_between_cycles: 'Nessun riposo tra esercizi, solo tra i cicli',
-};
-
 export interface TabataParams {
+  prepareSeconds: number;
   workSeconds: number;
   restSeconds: number;
-  restType: RestType;
   cycles: number;
   restBetweenCyclesSeconds: number;
 }
 
 export interface EmomParams {
+  prepareSeconds: number;
   intervalSeconds: number;
   rounds: number;
 }
 
 export interface AmrapParams {
+  prepareSeconds: number;
   timeLimitSeconds: number;
 }
 
 export const DEFAULT_TABATA_PARAMS: TabataParams = {
+  prepareSeconds: 3,
   workSeconds: 20,
   restSeconds: 10,
-  restType: 'between_exercises',
   cycles: 3,
   restBetweenCyclesSeconds: 60,
 };
 
 export const DEFAULT_EMOM_PARAMS: EmomParams = {
+  prepareSeconds: 3,
   intervalSeconds: 60,
   rounds: 8,
 };
 
 export const DEFAULT_AMRAP_PARAMS: AmrapParams = {
+  prepareSeconds: 3,
   timeLimitSeconds: 600,
 };
 

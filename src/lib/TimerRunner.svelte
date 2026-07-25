@@ -2,17 +2,19 @@
   import { onDestroy, onMount } from 'svelte';
   import type { Circuit } from './circuitTypes';
   import { buildTimeline, TimerEngine, type AnnounceSettings, type EngineSnapshot, type TimerPhase } from './timerEngine';
-  import { TimerAudio } from './timerAudio';
+  import { TimerAudio, type VoiceSelection } from './timerAudio';
   import { WakeLockManager } from './wakeLock';
 
   let {
     config,
     announce,
+    voiceSelection,
     exerciseNames,
     onExit,
   }: {
     config: Pick<Circuit, 'timerFormat' | 'tabata' | 'emom' | 'amrap' | 'exerciseIds'>;
     announce: AnnounceSettings;
+    voiceSelection: VoiceSelection;
     exerciseNames: string[];
     onExit: () => void;
   } = $props();
@@ -62,6 +64,8 @@
   const totalRounds = config.timerFormat === 'tabata' ? config.exerciseIds.length : config.timerFormat === 'emom' ? config.emom.rounds : 0;
 
   onMount(() => {
+    audio.setComputerVoice(voiceSelection.computerVoiceURI);
+    audio.setMode(voiceSelection.mode === 'profile' ? { kind: 'profile', profileId: voiceSelection.profileId } : { kind: 'computer' });
     engine = new TimerEngine(phases, announce, audio, (snap) => {
       snapshot = snap;
     });

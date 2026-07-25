@@ -10,12 +10,10 @@
     type PatternCategory,
   } from './types';
   import ExerciseForm from './ExerciseForm.svelte';
-  import PhraseLibrary from './PhraseLibrary.svelte';
 
   let exercises = $state<Exercise[]>([]);
   let formOpen = $state(false);
   let editingExercise = $state<Exercise | null>(null);
-  let phraseLibraryOpen = $state(false);
 
   async function load() {
     exercises = await db.exercises.orderBy('name').toArray();
@@ -55,7 +53,6 @@
 <div class="screen">
   <div class="topbar">
     <h1>Eserciziario</h1>
-    <button class="settings-btn" onclick={() => (phraseLibraryOpen = true)} aria-label="Frasi vocali">⚙</button>
   </div>
 
   <div class="content">
@@ -94,15 +91,6 @@
   <ExerciseForm exercise={editingExercise} onClose={closeForm} onSaved={handleSaved} />
 {/if}
 
-{#if phraseLibraryOpen}
-  <div class="phrase-overlay">
-    <div class="phrase-topbar">
-      <button class="icon-btn" onclick={() => (phraseLibraryOpen = false)} aria-label="Chiudi">✕</button>
-    </div>
-    <PhraseLibrary />
-  </div>
-{/if}
-
 <style>
   .screen {
     display: flex;
@@ -116,38 +104,6 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-  }
-
-  .settings-btn {
-    background: var(--bg-elevated);
-    border: none;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    font-size: 15px;
-    color: var(--text-muted);
-  }
-
-  .phrase-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 90;
-    background: var(--bg);
-    overflow-y: auto;
-  }
-
-  .phrase-topbar {
-    padding: 16px 12px;
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .icon-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 18px;
-    padding: 8px 12px;
   }
 
   .topbar h1 {

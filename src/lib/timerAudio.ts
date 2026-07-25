@@ -1,13 +1,32 @@
 import { db } from './db';
 
-export const PHRASE_TEXT: Record<'lavora' | 'riposa' | 'completato', string> = {
+export type PhraseKey = 'prepara' | 'lavora' | 'riposa' | 'completato';
+
+export const PHRASE_TEXT: Record<PhraseKey, string> = {
+  prepara: 'Preparati',
   lavora: 'Lavora',
   riposa: 'Riposa',
   completato: 'Allenamento completato',
 };
 
+export type VoiceMode = { kind: 'computer' } | { kind: 'profile'; profileId: number };
+
+export type VoiceSelection =
+  | { mode: 'computer'; computerVoiceURI: string }
+  | { mode: 'profile'; profileId: number; computerVoiceURI: string };
+
 export class TimerAudio {
   private ctx: AudioContext | null = null;
+  private computerVoiceURI = '';
+  private mode: VoiceMode = { kind: 'computer' };
+
+  setComputerVoice(voiceURI: string) {
+    this.computerVoiceURI = voiceURI;
+  }
+
+  setMode(mode: VoiceMode) {
+    this.mode = mode;
+  }
 
   private getCtx(): AudioContext {
     if (!this.ctx) {
@@ -42,6 +61,10 @@ export class TimerAudio {
     speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'it-IT';
+    if (this.computerVoiceURI) {
+      const voice = speechSynthesis.getVoices().find((v) => v.voiceURI === this.computerVoiceURI);
+      if (voice) utter.voice = voice;
+    }
     speechSynthesis.speak(utter);
   }
 
@@ -49,11 +72,15 @@ export class TimerAudio {
     this.speakText(String(n));
   }
 
-  async speakPhrase(key: 'lavora' | 'riposa' | 'completato') {
-    const recording = await db.voiceRecordings.where({ targetType: 'phrase', phraseKey: key }).first();
-    if (recording) {
-      this.playBlob(recording.audioBlob);
-      return;
+  async speakPhrase(key: PhraseKey) {
+    if (this.mode.kind === 'profile') {
+      const recording = await db.voiceRecordings
+        .where({ targetType: 'phrase', phraseKey: key, profileId: this.mode.profileId })
+        .first();
+      if (recording) {
+        this.playBlob(recording.audioBlob);
+        return;
+      }
     }
     this.speakText(PHRASE_TEXT[key]);
   }

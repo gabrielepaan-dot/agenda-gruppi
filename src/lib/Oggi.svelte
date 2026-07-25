@@ -5,7 +5,6 @@
   import { TIMER_FORMAT_LABELS, TIMER_FORMAT_COLORS, circuitSummary, type Circuit } from './circuitTypes';
   import type { Session } from './sessionTypes';
   import SessionEditor from './SessionEditor.svelte';
-  import Timer from './Timer.svelte';
 
   const today = new Date();
   const todayIso = toIsoDate(today);
@@ -18,7 +17,6 @@
   let lastSessionCircuits = $state<Circuit[]>([]);
   let openSession = $state<Session | null>(null);
   let loading = $state(true);
-  let standaloneTimerOpen = $state(false);
 
   async function loadForGroup(groupId: GroupId) {
     loading = true;
@@ -72,7 +70,6 @@
 <div class="screen">
   <div class="topbar">
     <h1>Oggi</h1>
-    <button class="timer-btn" onclick={() => (standaloneTimerOpen = true)} aria-label="Timer standalone">⏱</button>
   </div>
 
   {#if !selectedGroupId}
@@ -135,10 +132,6 @@
   <SessionEditor session={openSession} onClose={handleEditorClose} onDeleted={handleEditorDeleted} />
 {/if}
 
-{#if standaloneTimerOpen}
-  <Timer onClose={() => (standaloneTimerOpen = false)} />
-{/if}
-
 <style>
   .screen {
     display: flex;
@@ -157,16 +150,6 @@
   .topbar h1 {
     font-size: 22px;
     font-weight: 800;
-  }
-
-  .timer-btn {
-    background: var(--bg-elevated);
-    border: none;
-    border-radius: 50%;
-    width: 38px;
-    height: 38px;
-    font-size: 16px;
-    color: var(--text-muted);
   }
 
   .cta {

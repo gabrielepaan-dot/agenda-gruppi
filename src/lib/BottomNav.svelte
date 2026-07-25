@@ -1,11 +1,12 @@
 <script lang="ts">
-  export type NavTab = 'oggi' | 'agenda' | 'standard' | 'eserciziario';
+  export type NavTab = 'oggi' | 'agenda' | 'timer' | 'standard' | 'eserciziario';
 
   let { active, onSelect }: { active: NavTab; onSelect: (tab: NavTab) => void } = $props();
 
   const items: { id: NavTab; label: string }[] = [
     { id: 'oggi', label: 'Oggi' },
     { id: 'agenda', label: 'Agenda' },
+    { id: 'timer', label: 'Timer' },
     { id: 'standard', label: 'Standard' },
     { id: 'eserciziario', label: 'Esercizi' },
   ];
@@ -24,6 +25,11 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="5" width="18" height="16" rx="2" />
             <path d="M3 9.5h18M8 3v4M16 3v4" />
+          </svg>
+        {:else if item.id === 'timer'}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="13" r="8" />
+            <path d="M12 9v4l3 2M10 2h4M18.5 5.5l1.5-1.5" />
           </svg>
         {:else if item.id === 'standard'}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

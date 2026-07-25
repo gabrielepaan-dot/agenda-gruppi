@@ -16,7 +16,7 @@ export interface AnnounceSettings {
   esercizio: boolean;
 }
 
-const PREPARE_SECONDS = 3;
+const DEFAULT_PREPARE_SECONDS = 3;
 const CUE_KINDS = new Set<PhaseKind>(['rest', 'rest_cycle', 'interval', 'amrap']);
 
 export function buildTimeline(circuit: Pick<Circuit, 'timerFormat' | 'tabata' | 'emom' | 'amrap' | 'exerciseIds'>): TimerPhase[] {
@@ -26,7 +26,7 @@ export function buildTimeline(circuit: Pick<Circuit, 'timerFormat' | 'tabata' | 
 }
 
 function buildTabataTimeline(exerciseIds: number[], params: Circuit['tabata']): TimerPhase[] {
-  const phases: TimerPhase[] = [{ kind: 'prepare', durationSeconds: PREPARE_SECONDS }];
+  const phases: TimerPhase[] = [{ kind: 'prepare', durationSeconds: params.prepareSeconds ?? DEFAULT_PREPARE_SECONDS }];
   const n = exerciseIds.length;
   for (let cycle = 0; cycle < params.cycles; cycle++) {
     for (let round = 0; round < n; round++) {
@@ -40,9 +40,7 @@ function buildTabataTimeline(exerciseIds: number[], params: Circuit['tabata']): 
       const isLastExerciseOfCycle = round === n - 1;
       const isLastCycle = cycle === params.cycles - 1;
       if (!isLastExerciseOfCycle) {
-        if (params.restType === 'between_exercises') {
-          phases.push({ kind: 'rest', durationSeconds: params.restSeconds });
-        }
+        phases.push({ kind: 'rest', durationSeconds: params.restSeconds });
       } else if (!isLastCycle) {
         phases.push({ kind: 'rest_cycle', durationSeconds: params.restBetweenCyclesSeconds });
       }
@@ -53,7 +51,7 @@ function buildTabataTimeline(exerciseIds: number[], params: Circuit['tabata']): 
 }
 
 function buildEmomTimeline(params: Circuit['emom']): TimerPhase[] {
-  const phases: TimerPhase[] = [{ kind: 'prepare', durationSeconds: PREPARE_SECONDS }];
+  const phases: TimerPhase[] = [{ kind: 'prepare', durationSeconds: params.prepareSeconds ?? DEFAULT_PREPARE_SECONDS }];
   for (let round = 0; round < params.rounds; round++) {
     phases.push({ kind: 'interval', durationSeconds: params.intervalSeconds, round: round + 1 });
   }
@@ -63,7 +61,7 @@ function buildEmomTimeline(params: Circuit['emom']): TimerPhase[] {
 
 function buildAmrapTimeline(params: Circuit['amrap']): TimerPhase[] {
   return [
-    { kind: 'prepare', durationSeconds: PREPARE_SECONDS },
+    { kind: 'prepare', durationSeconds: params.prepareSeconds ?? DEFAULT_PREPARE_SECONDS },
     { kind: 'amrap', durationSeconds: params.timeLimitSeconds },
     { kind: 'done', durationSeconds: 0 },
   ];
@@ -126,8 +124,15 @@ export class TimerEngine {
     const phase = this.phases[index];
     this.phaseEndTime = Date.now() + phase.durationSeconds * 1000;
     this.cued.clear();
-    if ((phase.kind === 'rest' || phase.kind === 'rest_cycle') && this.announce.frasi) {
+    if (phase.kind === 'prepare') {
+      if (this.announce.frasi) this.audio.speakPhrase('prepara');
+    } else if ((phase.kind === 'rest' || phase.kind === 'rest_cycle') && this.announce.frasi) {
       this.audio.speakPhrase('riposa');
+    } else if ((phase.kind === 'work' || phase.kind === 'interval') && this.phases[index - 1]?.kind === 'prepare') {
+      // The countdown that precedes work/interval never gets a chance to preview what's
+      // coming next (unlike rest/rest_cycle/interval/amrap, which cue "lavora" a few seconds
+      // before ending), so without this the timer goes silent right as prepare hands off to work.
+      this.speakUpcoming(phase);
     }
     this.emit(phase.durationSeconds);
   }
@@ -145,7 +150,7 @@ export class TimerEngine {
 
   private maybeCue(phase: TimerPhase, remaining: number) {
     if (phase.kind === 'prepare') {
-      if (remaining >= 1 && remaining <= PREPARE_SECONDS && !this.cued.has(remaining)) {
+      if (remaining >= 1 && remaining <= phase.durationSeconds && !this.cued.has(remaining)) {
         this.cued.add(remaining);
         if (this.voiceActive) this.audio.speakNumber(remaining);
         else this.audio.beep();
