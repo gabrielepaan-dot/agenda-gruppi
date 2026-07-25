@@ -44,7 +44,6 @@
   function sessionSummaryLine(session: Session | null, circuits: Circuit[]): string {
     if (!session) return '';
     if (circuits.length > 0) return circuits.map((c) => c.name).join(', poi ');
-    if (session.warmup) return session.warmup;
     return 'Nessun contenuto registrato';
   }
 
@@ -106,11 +105,6 @@
             </div>
           </button>
         {/if}
-
-        <div class="section-label">Riscaldamento</div>
-        <button class="warmup-card" onclick={openToday}>
-          <div class="sub">{todaySession?.warmup || 'Da definire'}</div>
-        </button>
 
         <div class="section-label">Circuiti di oggi</div>
         {#if todayCircuits.length === 0}
@@ -236,21 +230,6 @@
     font-size: 13px;
     font-weight: 700;
     color: var(--text-muted);
-  }
-
-  .warmup-card {
-    margin: 0 20px 14px;
-    background: var(--bg-elevated);
-    border-radius: var(--radius-lg);
-    padding: 16px 18px;
-    border: none;
-    width: calc(100% - 40px);
-    text-align: left;
-  }
-
-  .warmup-card .sub {
-    font-size: 15px;
-    color: var(--text);
   }
 
   .empty-circuits {

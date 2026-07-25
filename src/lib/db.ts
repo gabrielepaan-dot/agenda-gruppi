@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { Exercise, VoiceRecording, VoiceProfile } from './types';
 import type { Circuit, TimerPreset } from './circuitTypes';
 import type { Session } from './sessionTypes';
-import type { StandardCategory, StandardVariant } from './standardTypes';
+import type { StandardVariant } from './standardTypes';
 
 const db = new Dexie('agenda-gruppi') as Dexie & {
   exercises: EntityTable<Exercise, 'id'>;
@@ -11,7 +11,6 @@ const db = new Dexie('agenda-gruppi') as Dexie & {
   circuits: EntityTable<Circuit, 'id'>;
   timerPresets: EntityTable<TimerPreset, 'id'>;
   sessions: EntityTable<Session, 'id'>;
-  standardCategories: EntityTable<StandardCategory, 'id'>;
   standardVariants: EntityTable<StandardVariant, 'id'>;
 };
 
@@ -50,6 +49,22 @@ db.version(6)
     if (orphaned.length === 0) return;
     const profileId = await tx.table('voiceProfiles').add({ name: 'Voce salvata', createdAt: Date.now() });
     await Promise.all(orphaned.map((r: VoiceRecording) => tx.table('voiceRecordings').update(r.id, { profileId })));
+  });
+
+db.version(7)
+  .stores({
+    standardCategories: null,
+    standardVariants: '++id, groupId, name',
+  })
+  .upgrade(async (tx) => {
+    const categories = await tx.table('standardCategories').toArray();
+    const groupIdByCategoryId = new Map(categories.map((c: { id: number; groupId: string }) => [c.id, c.groupId]));
+    const variants = await tx.table('standardVariants').toArray();
+    await Promise.all(
+      variants.map((v: { id: number; categoryId: number }) =>
+        tx.table('standardVariants').update(v.id, { groupId: groupIdByCategoryId.get(v.categoryId) }),
+      ),
+    );
   });
 
 export { db };

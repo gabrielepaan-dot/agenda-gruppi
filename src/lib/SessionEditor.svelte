@@ -13,7 +13,6 @@
     type Circuit,
   } from './circuitTypes';
   import type { Session } from './sessionTypes';
-  import type { StandardCategory } from './standardTypes';
   import CircuitForm from './CircuitForm.svelte';
   import Timer from './Timer.svelte';
 
@@ -21,7 +20,6 @@
 
   const group = GROUPS[session.groupId];
 
-  let warmup = $state(session.warmup);
   let notes = $state(session.notes);
   let circuits = $state<Circuit[]>([]);
   let circuitFormOpen = $state(false);
@@ -31,9 +29,6 @@
   let duplicated = $state(false);
 
   let saveVariantOpen = $state(false);
-  let categories = $state<StandardCategory[]>([]);
-  let selectedCategoryId = $state<number | ''>('');
-  let newCategoryName = $state('');
   let variantName = $state('');
   let variantSaved = $state(false);
 
@@ -44,7 +39,7 @@
   loadCircuits();
 
   async function saveText() {
-    await db.sessions.update(session.id!, { warmup, notes });
+    await db.sessions.update(session.id!, { notes });
     savedFlash = true;
     setTimeout(() => (savedFlash = false), 1200);
   }
@@ -89,7 +84,7 @@
   async function duplicateForNextWeek() {
     await saveText();
     const newDate = nextWeekIsoDate(session.date);
-    await duplicateSessionTo({ ...session, warmup, notes }, newDate);
+    await duplicateSessionTo({ ...session, notes }, newDate);
     duplicated = true;
     setTimeout(() => (duplicated = false), 1800);
   }
@@ -103,9 +98,6 @@
 
   async function openSaveVariant() {
     await saveText();
-    categories = await db.standardCategories.where('groupId').equals(session.groupId).toArray();
-    selectedCategoryId = categories[0]?.id ?? '';
-    newCategoryName = '';
     variantName = '';
     saveVariantOpen = true;
   }
@@ -113,13 +105,7 @@
   async function confirmSaveVariant() {
     const trimmedName = variantName.trim();
     if (!trimmedName) return;
-    let categoryId = selectedCategoryId;
-    if (!categoryId) {
-      const trimmedCat = newCategoryName.trim();
-      if (!trimmedCat) return;
-      categoryId = (await db.standardCategories.add({ groupId: session.groupId, name: trimmedCat })) as number;
-    }
-    await saveSessionAsVariant(session, categoryId as number, trimmedName, warmup, notes);
+    await saveSessionAsVariant(session, trimmedName, notes);
     saveVariantOpen = false;
     variantSaved = true;
     setTimeout(() => (variantSaved = false), 1800);
@@ -137,11 +123,6 @@
   </div>
 
   <div class="content">
-    <div class="field">
-      <span>Riscaldamento</span>
-      <textarea bind:value={warmup} onblur={saveText} rows="3" placeholder="Es. mobilità spalle + salita facile"></textarea>
-    </div>
-
     <div class="field">
       <span>Circuiti ({circuits.length})</span>
       {#each circuits as c, i (c.id)}
@@ -180,7 +161,7 @@
     </button>
 
     <button class="btn-duplicate" onclick={openSaveVariant}>
-      {variantSaved ? 'Salvata come variante ✓' : '★ Salva come variante standard'}
+      {variantSaved ? 'Salvato come allenamento ✓' : '★ Salva come allenamento standard'}
     </button>
 
     <button class="btn-delete" onclick={deleteSession}>Elimina sessione</button>
@@ -202,25 +183,10 @@
   <div class="overlay" role="button" tabindex="-1" onclick={() => (saveVariantOpen = false)} onkeydown={(e) => e.key === 'Escape' && (saveVariantOpen = false)}>
     <div class="sheet" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
       <div class="handle-bar"></div>
-      <h2>Salva come variante standard</h2>
+      <h2>Salva come allenamento standard</h2>
       <label class="field">
-        <span>Categoria</span>
-        <select bind:value={selectedCategoryId}>
-          {#each categories as cat}
-            <option value={cat.id}>{cat.name}</option>
-          {/each}
-          <option value="">+ Nuova categoria</option>
-        </select>
-      </label>
-      {#if !selectedCategoryId}
-        <label class="field">
-          <span>Nome nuova categoria</span>
-          <input type="text" bind:value={newCategoryName} placeholder="Es. Forza" />
-        </label>
-      {/if}
-      <label class="field">
-        <span>Nome variante</span>
-        <input type="text" bind:value={variantName} placeholder="Es. Variante A" />
+        <span>Nome allenamento</span>
+        <input type="text" bind:value={variantName} placeholder="Es. Allenamento A" />
       </label>
       <button class="btn-save-variant" onclick={confirmSaveVariant}>Salva</button>
     </div>
@@ -468,16 +434,6 @@
   .sheet h2 {
     font-size: 18px;
     font-weight: 800;
-  }
-
-  .sheet select {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px 14px;
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--text);
   }
 
   .btn-save-variant {

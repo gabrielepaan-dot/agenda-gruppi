@@ -1,82 +1,34 @@
 <script lang="ts">
   import { db } from './db';
-  import { GROUPS, type GroupId } from './groups';
-  import type { StandardCategory, StandardVariant } from './standardTypes';
+  import { GROUPS, WEEKLY_SCHEDULE, type GroupId } from './groups';
+  import type { StandardVariant } from './standardTypes';
   import StandardVariantEditor from './StandardVariantEditor.svelte';
 
-  let view = $state<'groups' | 'categories' | 'variants'>('groups');
-  let selectedGroupId = $state<GroupId | null>(null);
-  let selectedCategory = $state<StandardCategory | null>(null);
+  const WEEKDAY_NAMES: Record<number, string> = { 1: 'lunedì', 2: 'martedì', 3: 'mercoledì', 4: 'giovedì' };
 
-  let categories = $state<StandardCategory[]>([]);
+  function daysForGroup(groupId: GroupId): string {
+    const days = WEEKLY_SCHEDULE.filter((s) => s.groupId === groupId).map((s) => WEEKDAY_NAMES[s.weekday]);
+    return [...new Set(days)].join(', ');
+  }
+
+  let view = $state<'groups' | 'variants'>('groups');
+  let selectedGroupId = $state<GroupId | null>(null);
+
   let variants = $state<StandardVariant[]>([]);
   let openVariant = $state<StandardVariant | null>(null);
-
-  let categoryFormOpen = $state(false);
-  let editingCategory = $state<StandardCategory | null>(null);
-  let categoryNameInput = $state('');
 
   let variantCreatorOpen = $state(false);
   let newVariantName = $state('');
 
   async function openGroup(groupId: GroupId) {
     selectedGroupId = groupId;
-    categories = await db.standardCategories.where('groupId').equals(groupId).toArray();
-    view = 'categories';
-  }
-
-  async function openCategory(cat: StandardCategory) {
-    selectedCategory = cat;
-    variants = await db.standardVariants.where('categoryId').equals(cat.id!).toArray();
+    variants = await db.standardVariants.where('groupId').equals(groupId).toArray();
     view = 'variants';
   }
 
   function backToGroups() {
     view = 'groups';
     selectedGroupId = null;
-  }
-
-  async function backToCategories() {
-    if (!selectedGroupId) return;
-    view = 'categories';
-    categories = await db.standardCategories.where('groupId').equals(selectedGroupId).toArray();
-    selectedCategory = null;
-  }
-
-  function openNewCategory() {
-    editingCategory = null;
-    categoryNameInput = '';
-    categoryFormOpen = true;
-  }
-
-  function openEditCategory(cat: StandardCategory) {
-    editingCategory = cat;
-    categoryNameInput = cat.name;
-    categoryFormOpen = true;
-  }
-
-  async function saveCategory() {
-    const trimmed = categoryNameInput.trim();
-    if (!trimmed || !selectedGroupId) return;
-    if (editingCategory?.id) {
-      await db.standardCategories.update(editingCategory.id, { name: trimmed });
-    } else {
-      await db.standardCategories.add({ groupId: selectedGroupId, name: trimmed });
-    }
-    categoryFormOpen = false;
-    categories = await db.standardCategories.where('groupId').equals(selectedGroupId).toArray();
-  }
-
-  async function deleteCategory(cat: StandardCategory) {
-    if (!confirm(`Eliminare la categoria "${cat.name}" e tutte le sue varianti?`)) return;
-    const catVariants = await db.standardVariants.where('categoryId').equals(cat.id!).toArray();
-    for (const v of catVariants) {
-      await db.circuits.where('[ownerType+ownerId]').equals(['variant', v.id!]).delete();
-      await db.standardVariants.delete(v.id!);
-    }
-    await db.standardCategories.delete(cat.id!);
-    categoryFormOpen = false;
-    if (selectedGroupId) categories = await db.standardCategories.where('groupId').equals(selectedGroupId).toArray();
   }
 
   function openNewVariant() {
@@ -86,10 +38,10 @@
 
   async function createVariant() {
     const trimmed = newVariantName.trim();
-    if (!trimmed || !selectedCategory) return;
-    const id = await db.standardVariants.add({ categoryId: selectedCategory.id!, name: trimmed, warmup: '', notes: '' });
+    if (!trimmed || !selectedGroupId) return;
+    const id = await db.standardVariants.add({ groupId: selectedGroupId, name: trimmed, notes: '' });
     variantCreatorOpen = false;
-    variants = await db.standardVariants.where('categoryId').equals(selectedCategory.id!).toArray();
+    variants = await db.standardVariants.where('groupId').equals(selectedGroupId).toArray();
     openVariant = variants.find((v) => v.id === id) ?? null;
   }
 
@@ -99,12 +51,12 @@
 
   async function handleVariantEditorClose() {
     openVariant = null;
-    if (selectedCategory) variants = await db.standardVariants.where('categoryId').equals(selectedCategory.id!).toArray();
+    if (selectedGroupId) variants = await db.standardVariants.where('groupId').equals(selectedGroupId).toArray();
   }
 
   async function handleVariantDeleted() {
     openVariant = null;
-    if (selectedCategory) variants = await db.standardVariants.where('categoryId').equals(selectedCategory.id!).toArray();
+    if (selectedGroupId) variants = await db.standardVariants.where('groupId').equals(selectedGroupId).toArray();
   }
 </script>
 
@@ -116,39 +68,22 @@
     <div class="content">
       {#each Object.values(GROUPS) as g}
         <button class="card" onclick={() => openGroup(g.id)}>
-          <span class="group-pill" style="background:{g.color}">{g.name}</span>
+          <div class="group-info">
+            <span class="group-pill" style="background:{g.color}">{g.name}</span>
+            <span class="days">{daysForGroup(g.id)}</span>
+          </div>
         </button>
       {/each}
     </div>
-  {:else if view === 'categories'}
+  {:else if view === 'variants'}
     <div class="topbar">
       <button class="icon-btn" onclick={backToGroups} aria-label="Indietro">‹</button>
       <h1>{selectedGroupId ? GROUPS[selectedGroupId].name : ''}</h1>
       <span class="spacer"></span>
     </div>
     <div class="content">
-      {#if categories.length === 0}
-        <p class="empty">Nessuna categoria. Creane una per iniziare.</p>
-      {/if}
-      {#each categories as cat (cat.id)}
-        <div class="card row">
-          <button class="card-main" onclick={() => openCategory(cat)}>
-            <div class="name">{cat.name}</div>
-          </button>
-          <button class="edit-btn" onclick={() => openEditCategory(cat)} aria-label="Modifica categoria">✎</button>
-        </div>
-      {/each}
-    </div>
-    <button class="fab" onclick={openNewCategory} aria-label="Nuova categoria">+</button>
-  {:else if view === 'variants'}
-    <div class="topbar">
-      <button class="icon-btn" onclick={backToCategories} aria-label="Indietro">‹</button>
-      <h1>{selectedCategory?.name ?? ''}</h1>
-      <span class="spacer"></span>
-    </div>
-    <div class="content">
       {#if variants.length === 0}
-        <p class="empty">Nessuna variante. Creane una per iniziare.</p>
+        <p class="empty">Nessun allenamento. Creane uno per iniziare.</p>
       {/if}
       {#each variants as v (v.id)}
         <button class="card" onclick={() => openExistingVariant(v)}>
@@ -156,38 +91,18 @@
         </button>
       {/each}
     </div>
-    <button class="fab" onclick={openNewVariant} aria-label="Nuova variante">+</button>
+    <button class="fab" onclick={openNewVariant} aria-label="Nuovo allenamento">+</button>
   {/if}
 </div>
-
-{#if categoryFormOpen}
-  <div class="overlay" role="button" tabindex="-1" onclick={() => (categoryFormOpen = false)} onkeydown={(e) => e.key === 'Escape' && (categoryFormOpen = false)}>
-    <div class="sheet" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
-      <div class="handle-bar"></div>
-      <h2>{editingCategory ? 'Modifica categoria' : 'Nuova categoria'}</h2>
-      <label class="field">
-        <span>Nome</span>
-        <input type="text" bind:value={categoryNameInput} placeholder="Es. Forza" />
-      </label>
-      <div class="actions">
-        {#if editingCategory}
-          <button class="btn-delete" onclick={() => deleteCategory(editingCategory!)}>Elimina</button>
-        {/if}
-        <button class="btn-cancel" onclick={() => (categoryFormOpen = false)}>Annulla</button>
-        <button class="btn-save" onclick={saveCategory}>Salva</button>
-      </div>
-    </div>
-  </div>
-{/if}
 
 {#if variantCreatorOpen}
   <div class="overlay" role="button" tabindex="-1" onclick={() => (variantCreatorOpen = false)} onkeydown={(e) => e.key === 'Escape' && (variantCreatorOpen = false)}>
     <div class="sheet" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
       <div class="handle-bar"></div>
-      <h2>Nuova variante</h2>
+      <h2>Nuovo allenamento</h2>
       <label class="field">
         <span>Nome</span>
-        <input type="text" bind:value={newVariantName} placeholder="Es. Variante A" />
+        <input type="text" bind:value={newVariantName} placeholder="Es. Allenamento A" />
       </label>
       <button class="btn-save" onclick={createVariant}>Crea</button>
     </div>
@@ -254,26 +169,17 @@
     text-align: left;
   }
 
-  .card.row {
-    padding: 0;
-    gap: 8px;
+  .group-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
   }
 
-  .card-main {
-    flex: 1;
-    background: transparent;
-    border: none;
-    padding: 16px 18px;
-    text-align: left;
-  }
-
-  .edit-btn {
-    flex-shrink: 0;
-    background: transparent;
-    border: none;
-    color: var(--text-faint);
-    font-size: 15px;
-    padding: 12px 16px;
+  .days {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 600;
   }
 
   .name {
@@ -360,35 +266,13 @@
     color: var(--text);
   }
 
-  .actions {
-    display: flex;
-    gap: 10px;
-  }
-
-  .actions button {
-    flex: 1;
+  .btn-save {
+    background: var(--accent);
+    color: #fff;
     border: none;
     border-radius: var(--radius-sm);
     padding: 13px;
     font-size: 15px;
     font-weight: 700;
-  }
-
-  .btn-save {
-    background: var(--accent);
-    color: #fff;
-  }
-
-  .btn-cancel {
-    background: var(--bg);
-    color: var(--text-muted);
-    border: 1px solid var(--border) !important;
-  }
-
-  .btn-delete {
-    flex: 0 0 auto;
-    background: transparent;
-    color: #f26d6d;
-    padding: 13px 16px;
   }
 </style>

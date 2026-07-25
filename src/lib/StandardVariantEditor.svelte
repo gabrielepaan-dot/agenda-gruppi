@@ -25,7 +25,6 @@
 
   const group = GROUPS[groupId];
 
-  let warmup = $state(variant.warmup);
   let notes = $state(variant.notes);
   let circuits = $state<Circuit[]>([]);
   let circuitFormOpen = $state(false);
@@ -41,7 +40,7 @@
   loadCircuits();
 
   async function saveText() {
-    await db.standardVariants.update(variant.id!, { warmup, notes });
+    await db.standardVariants.update(variant.id!, { notes });
     savedFlash = true;
     setTimeout(() => (savedFlash = false), 1200);
   }
@@ -86,13 +85,13 @@
   async function applyToToday() {
     await saveText();
     const todaySession = await ensureSessionForDate(toIsoDate(new Date()), groupId);
-    await applyVariantToSession({ ...variant, warmup, notes }, todaySession);
+    await applyVariantToSession({ ...variant, notes }, todaySession);
     applied = true;
     setTimeout(() => (applied = false), 1800);
   }
 
   async function deleteVariant() {
-    if (!confirm(`Eliminare la variante "${variant.name}"?`)) return;
+    if (!confirm(`Eliminare l'allenamento "${variant.name}"?`)) return;
     await deleteCircuitsFor('variant', variant.id!);
     await db.standardVariants.delete(variant.id!);
     onDeleted();
@@ -110,11 +109,6 @@
   </div>
 
   <div class="content">
-    <label class="field">
-      <span>Riscaldamento</span>
-      <textarea bind:value={warmup} onblur={saveText} rows="3" placeholder="Es. mobilità spalle + salita facile"></textarea>
-    </label>
-
     <div class="field">
       <span>Circuiti ({circuits.length})</span>
       {#each circuits as c, i (c.id)}
@@ -141,7 +135,7 @@
 
     <label class="field">
       <span>Note</span>
-      <textarea bind:value={notes} onblur={saveText} rows="3" placeholder="Note libere sulla variante"></textarea>
+      <textarea bind:value={notes} onblur={saveText} rows="3" placeholder="Note libere sull'allenamento"></textarea>
     </label>
 
     {#if savedFlash}
@@ -152,7 +146,7 @@
       {applied ? 'Applicata a oggi ✓' : '▶ Applica a Oggi'}
     </button>
 
-    <button class="btn-delete" onclick={deleteVariant}>Elimina variante</button>
+    <button class="btn-delete" onclick={deleteVariant}>Elimina allenamento</button>
   </div>
 </div>
 

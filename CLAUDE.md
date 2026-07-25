@@ -9,7 +9,7 @@ Agenda Gruppi — a local-only PWA (also packaged as a native Android app via Ca
 ## 1. Stack tecnico
 
 - **Svelte 5** in runes mode (`$state`, `$derived`, `$props`, `$derived.by` — no legacy `export let`/stores) + **TypeScript** + **Vite 8**.
-- **Dexie** (`src/lib/db.ts`) wraps IndexedDB; schema is versioned via `db.version(n).stores(...)`, with one `.upgrade()` migration so far (v6).
+- **Dexie** (`src/lib/db.ts`) wraps IndexedDB; schema is versioned via `db.version(n).stores(...)`, with `.upgrade()` migrations at v6 and v7.
 - **svelte-dnd-action** for drag-to-reorder exercises within a circuit (`CircuitForm.svelte`).
 - **Capacitor** (`@capacitor/core`, `@capacitor/android`) wraps the built web app into a native Android shell; native project lives in `android/`.
 - **@fontsource/inter** bundled locally (not Google Fonts CDN) — the app must work with zero connectivity in the gym.
@@ -46,7 +46,7 @@ src/
     types.ts                — Exercise + VoiceRecording/VoiceProfile types
     circuitTypes.ts         — Circuit, TimerFormat params, Tipologia
     sessionTypes.ts         — Session type
-    standardTypes.ts        — StandardCategory/StandardVariant types
+    standardTypes.ts        — StandardVariant type
     circuitService.ts       — owner-agnostic circuit CRUD helpers
     sessionService.ts       — session duplication / auto-provisioning
     standardService.ts      — apply variant ↔ session conversions
@@ -56,7 +56,7 @@ src/
     BottomNav.svelte         — 5-tab nav bar
     Oggi.svelte              — screen: today's session
     Agenda.svelte            — screen: flat chronological session list
-    AllenamentiStandard.svelte — screen: standard workout library (3-level drill-down)
+    AllenamentiStandard.svelte — screen: standard workout library (2-level drill-down)
     Eserciziario.svelte      — screen: exercise list
     Timer.svelte             — screen/component: standalone timer setup + per-circuit launcher
     SessionEditor.svelte     — full-screen editor for one Session
@@ -73,11 +73,11 @@ home-diario-style.html      — visual reference mockup (antracite/rounded/pill 
 
 ## 3. Navigazione
 
-Bottom nav has **5 tabs** (`BottomNav.svelte`): Oggi, Agenda, Allenamenti, Esercizi, Timer. (`spec-agenda-gruppi.md` still says "4 voci" — that line is stale, see section 7. Also note: the tab and screen were formerly labeled "Standard" — renamed to "Allenamenti" for the user-facing label/header only, the `AllenamentiStandard.svelte` filename and internal `Standard*` type/identifier names are unchanged.)
+Bottom nav has **5 tabs** (`BottomNav.svelte`): Oggi, Agenda, Allenamenti, Esercizi, Timer. (`spec-agenda-gruppi.md` still says "4 voci" — that line is stale, see section 7. Also note: the tab and screen were formerly labeled "Standard" — renamed to "Allenamenti" for the user-facing label/header only, the `AllenamentiStandard.svelte` filename and internal `Standard*` type/identifier names are unchanged. Same pattern for "variante": user-facing strings now say "allenamento" everywhere, but the `StandardVariant` type/table/component names are unchanged.)
 
-- **Oggi** (`Oggi.svelte`) — auto-detects today's group(s) via `slotsForDate`; on "double days" (Wed/Thu) shows a pill switcher between the day's two groups, never both at once. Auto-provisions today's `Session` via `ensureSessionForDate` (duplicates the most recent past session for that group if one exists, else creates an empty one). Shows the "last time" card, warmup preview, and circuit list; tapping anything opens `SessionEditor`. Read-mostly — all editing is delegated. **Limitation**: only ever operates on *today's* date, no date picker.
+- **Oggi** (`Oggi.svelte`) — auto-detects today's group(s) via `slotsForDate`; on "double days" (Wed/Thu) shows a pill switcher between the day's two groups, never both at once. Auto-provisions today's `Session` via `ensureSessionForDate` (duplicates the most recent past session for that group if one exists, else creates an empty one). Shows the "last time" card and circuit list; tapping anything opens `SessionEditor`. Read-mostly — all editing is delegated. **Limitation**: only ever operates on *today's* date, no date picker.
 - **Agenda** (`Agenda.svelte`) — flat, reverse-chronological list of **all** sessions across all groups, today's entry highlighted. Tapping opens `SessionEditor`. **Limitation**: no way to create a session for an arbitrary future date from here — sessions only come into being via Oggi's auto-provisioning or via "duplicate to next week" from inside an existing session.
-- **Allenamenti** (`AllenamentiStandard.svelte`) — 3-level drill-down: group → category → variant (categories are per-group, not shared). CRUD-complete on categories (delete cascades to their variants + circuits) and variants (create empty, or via "save current session as variant"; edit via `StandardVariantEditor`; delete cascades circuits). "Applica a Oggi" copies a variant's content into today's session for that group. **Limitation**: categories/variants can't be manually reordered (only circuits inside a variant can). Both the "categorie" and "varianti" drill-down levels have their own FAB (+).
+- **Allenamenti** (`AllenamentiStandard.svelte`) — 2-level drill-down: group → allenamento (flat list, no intermediate category level — collapsed 2026-07-25, see section 7). The group list also shows each group's day(s) of the week, derived from `WEEKLY_SCHEDULE`, joined with a comma when a group meets more than once. CRUD-complete on `StandardVariant` ("allenamento" in the UI): create empty via the single FAB, or via "save current session as allenamento standard" from `SessionEditor`; edit via `StandardVariantEditor`; delete cascades its circuits. "Applica a Oggi" copies an allenamento's content into today's session for that group. **Limitation**: allenamenti can't be manually reordered (only circuits inside one can).
 - **Esercizi** (`Eserciziario.svelte`) — flat list grouped by pattern category, FAB to add, tap to edit via `ExerciseForm` (name, category, Core subcategory if applicable, optional quality, voice recording). CRUD-complete. Deleting an exercise removes its voice recording but leaves the dangling id in any circuit's `exerciseIds` — shown as `—` wherever the name is looked up (matches the spec's "disappears from history silently" intent). **Note**: the old settings-gear entry point to a phrase/voice library is gone from this screen — voice profile management moved to the Timer screen (see section 7).
 - **Timer** (`Timer.svelte`, embedded mode) — standalone timer: pick format (Tabata/EMOM/AMRAP), edit intervals via tap-to-open bottom sheets (time-kind rows use a scrollable MIN/SEC wheel picker, iOS-style; count-kind rows like Cicli/Round still use a plain number input), save/apply/delete reusable `TimerPreset`s ("I miei workout"), pick voice (system TTS voice or a `VoiceProfile`) and announce toggles, then "Avvia" → `TimerRunner`. Each saved preset card also has its own "▶ Avvia" button that applies the preset and starts it immediately (separate from the "✓" circle, which only applies the preset into the current setup form without starting). The same component is reused **non-embedded** as a per-circuit launcher (opened from the ▶ button in `SessionEditor`/`StandardVariantEditor`) — in that mode format/params are read-only (they come from the `Circuit`), only voice/announce settings remain editable. CRUD-complete for `TimerPreset`s only in standalone mode.
 
@@ -90,13 +90,12 @@ Bottom nav has **5 tabs** (`BottomNav.svelte`): Oggi, Agenda, Allenamenti, Eserc
 | `voiceProfiles` | `name`, `createdAt` | a named "voice" (e.g. a person) owning a set of the 4 fixed-phrase recordings |
 | `circuits` | `ownerType` ('session'\|'variant'), `ownerId`, `order`, `name`, `tipologia`, `exerciseIds[]`, `timerFormat`, `tabata`, `emom`, `amrap` | compound index `[ownerType+ownerId]`; `ownerId` is a loose reference (no Dexie FK) into `sessions.id` or `standardVariants.id` |
 | `timerPresets` | `name`, `timerFormat`, `tabata`, `emom`, `amrap` | standalone saved workout configs, unrelated to any circuit/session |
-| `sessions` | `date` (YYYY-MM-DD), `groupId`, `warmup`, `notes` | indexed `date`, `groupId` |
-| `standardCategories` | `groupId`, `name` | indexed `groupId`, `name` |
-| `standardVariants` | `categoryId`, `name`, `warmup`, `notes` | indexed `categoryId`, `name` |
+| `sessions` | `date` (YYYY-MM-DD), `groupId`, `notes` | indexed `date`, `groupId` |
+| `standardVariants` | `groupId`, `name`, `notes` | indexed `groupId`, `name` |
 
-**Relations**: `Session`/`StandardVariant` → (`ownerType`+`ownerId`) → `Circuit`; `StandardCategory` → (`categoryId`) → `StandardVariant`; `Circuit` → (`exerciseIds[]`, loose many-to-many) → `Exercise`; `VoiceRecording` → (`exerciseId` or `phraseKey`+`profileId`) → `Exercise`/`VoiceProfile`.
+**Relations**: `Session`/`StandardVariant` → (`ownerType`+`ownerId`) → `Circuit`; `Circuit` → (`exerciseIds[]`, loose many-to-many) → `Exercise`; `VoiceRecording` → (`exerciseId` or `phraseKey`+`profileId`) → `Exercise`/`VoiceProfile`.
 
-**Migration history**: v1 exercises+voiceRecordings → v2 circuits → v3 timerPresets → v4 circuits gain sessionId/order, sessions table added (pre-dates the ownerType generalization) → v5 circuits generalized to `[ownerType+ownerId]`, standardCategories/standardVariants added → v6 voiceProfiles added, voiceRecordings gains `profileId`, with an `.upgrade()` that migrates any pre-existing orphaned phrase recording into a new default profile called "Voce salvata" (this is the PhraseLibrary → VoiceProfiles migration, see section 7).
+**Migration history**: v1 exercises+voiceRecordings → v2 circuits → v3 timerPresets → v4 circuits gain sessionId/order, sessions table added (pre-dates the ownerType generalization) → v5 circuits generalized to `[ownerType+ownerId]`, standardCategories/standardVariants added → v6 voiceProfiles added, voiceRecordings gains `profileId`, with an `.upgrade()` that migrates any pre-existing orphaned phrase recording into a new default profile called "Voce salvata" (this is the PhraseLibrary → VoiceProfiles migration, see section 7) → v7 drops the `standardCategories` table and the `warmup` field (from both `sessions` and `standardVariants`); `standardVariants` gains `groupId` directly, with an `.upgrade()` that copies each variant's old `categoryId → standardCategories.groupId` into the new field before the category table is deleted (see section 7).
 
 ## 5. Moduli chiave
 
@@ -122,7 +121,8 @@ Bottom nav has **5 tabs** (`BottomNav.svelte`): Oggi, Agenda, Allenamenti, Eserc
 
 ## 7. Decisioni di design prese
 
-- **Circuit has no standalone library/list screen.** It always belongs to an owner (`ownerType: 'session'|'variant'` + `ownerId`) and is created/edited inline from whatever owns it, because `Session` and `StandardVariant` are structurally identical containers (warmup + ordered circuits + notes). `circuitService.ts` exists purely to keep the owner-type filtering consistent across both callers.
+- **Circuit has no standalone library/list screen.** It always belongs to an owner (`ownerType: 'session'|'variant'` + `ownerId`) and is created/edited inline from whatever owns it, because `Session` and `StandardVariant` are structurally identical containers (ordered circuits + notes). `circuitService.ts` exists purely to keep the owner-type filtering consistent across both callers.
+- **`Allenamenti` collapsed from 3 levels to 2, and `warmup` was dropped entirely (2026-07-25).** The category level (`standardCategories` table, group → category → allenamento) was removed — `StandardVariant` now carries `groupId` directly, so the screen is just group → flat allenamento list; the `v7` migration back-fills `groupId` from each variant's old category before dropping the table (see section 4). The `Riscaldamento` textarea/field was removed from both `Session` and `StandardVariant` (and from `Oggi`'s "last time" preview) — a coach-driven simplification, not something the spec called for. Historical `warmup` string values in existing rows are left untouched in IndexedDB (harmless, just unread) rather than being explicitly stripped.
 - **Groups and weekly schedule are hardcoded** (`groups.ts`) — intentionally out of scope for an editor per the spec.
 - **Timer engine is timestamp-driven**, not tick-counted, specifically to avoid drift over long AMRAP/EMOM durations.
 - **Voice library was redesigned mid-project**: it used to be a single fixed `PhraseLibrary.svelte` (one recording per phrase, reached from a settings gear in `Eserciziario`'s topbar). It's now `VoiceProfiles.svelte` — N named profiles × 4 phrases each — reached from the Timer setup screen instead. The `db.version(6)` upgrade migrates any pre-existing recording into a default "Voce salvata" profile so nothing is lost. Rationale (inferred from the shape of the change): support different people's voices being selectable per timer run, not just the coach's own.
