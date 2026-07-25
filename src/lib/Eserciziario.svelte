@@ -179,7 +179,8 @@
   .fab {
     position: fixed;
     right: 20px;
-    bottom: 24px;
+    bottom: 96px;
+    z-index: 65;
     width: 56px;
     height: 56px;
     border-radius: 50%;

@@ -111,7 +111,7 @@
 <div class="screen">
   {#if view === 'groups'}
     <div class="topbar">
-      <h1>Allenamenti standard</h1>
+      <h1>Allenamenti</h1>
     </div>
     <div class="content">
       {#each Object.values(GROUPS) as g}
@@ -292,7 +292,8 @@
   .fab {
     position: fixed;
     right: 20px;
-    bottom: 24px;
+    bottom: 96px;
+    z-index: 65;
     width: 56px;
     height: 56px;
     border-radius: 50%;

@@ -6,9 +6,9 @@
   const items: { id: NavTab; label: string }[] = [
     { id: 'oggi', label: 'Oggi' },
     { id: 'agenda', label: 'Agenda' },
-    { id: 'timer', label: 'Timer' },
-    { id: 'standard', label: 'Standard' },
+    { id: 'standard', label: 'Allenamenti' },
     { id: 'eserciziario', label: 'Esercizi' },
+    { id: 'timer', label: 'Timer' },
   ];
 </script>
 
