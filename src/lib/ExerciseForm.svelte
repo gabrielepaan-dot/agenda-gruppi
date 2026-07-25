@@ -21,7 +21,7 @@
   }: { exercise?: Exercise | null; onClose: () => void; onSaved: () => void } = $props();
 
   let name = $state(exercise?.name ?? '');
-  let category = $state<PatternCategory>(exercise?.category ?? 'spinta');
+  let category = $state<PatternCategory>(exercise?.category ?? 'spinta_verticale');
   let coreSubcategory = $state<CoreSubcategory | ''>(exercise?.coreSubcategory ?? '');
   let quality = $state<Quality | ''>(exercise?.quality ?? '');
   let error = $state('');

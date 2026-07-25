@@ -1,8 +1,8 @@
 export type PatternCategory =
-  | 'spinta'
-  | 'trazione'
-  | 'verticale'
-  | 'orizzontale'
+  | 'spinta_verticale'
+  | 'spinta_orizzontale'
+  | 'tirata_verticale'
+  | 'tirata_orizzontale'
   | 'spinta_gambe'
   | 'tirata_gambe'
   | 'core'
@@ -11,10 +11,10 @@ export type PatternCategory =
   | 'multiarticolare';
 
 export const PATTERN_CATEGORIES: PatternCategory[] = [
-  'spinta',
-  'trazione',
-  'verticale',
-  'orizzontale',
+  'spinta_verticale',
+  'spinta_orizzontale',
+  'tirata_verticale',
+  'tirata_orizzontale',
   'spinta_gambe',
   'tirata_gambe',
   'core',
@@ -24,23 +24,23 @@ export const PATTERN_CATEGORIES: PatternCategory[] = [
 ];
 
 export const PATTERN_CATEGORY_LABELS: Record<PatternCategory, string> = {
-  spinta: 'Spinta',
-  trazione: 'Trazione',
-  verticale: 'Verticale',
-  orizzontale: 'Orizzontale',
+  spinta_verticale: 'Spinta verticale',
+  spinta_orizzontale: 'Spinta orizzontale',
+  tirata_verticale: 'Tirata verticale',
+  tirata_orizzontale: 'Tirata orizzontale',
   spinta_gambe: 'Spinta gambe',
   tirata_gambe: 'Tirata gambe',
   core: 'Core',
   accessori: 'Accessori',
-  mobilita: 'Mobilità/allungamento',
-  multiarticolare: 'Multiarticolare/Total body',
+  mobilita: 'Mobilità',
+  multiarticolare: 'Multiarticolare Total body',
 };
 
 export const PATTERN_CATEGORY_COLORS: Record<PatternCategory, { bg: string; text: string }> = {
-  spinta: { bg: '#F26D6D', text: '#fff' },
-  trazione: { bg: '#3B6FA0', text: '#fff' },
-  verticale: { bg: '#5FB8C9', text: '#111' },
-  orizzontale: { bg: '#9B7EDE', text: '#fff' },
+  spinta_verticale: { bg: '#F26D6D', text: '#fff' },
+  spinta_orizzontale: { bg: '#3B6FA0', text: '#fff' },
+  tirata_verticale: { bg: '#5FB8C9', text: '#111' },
+  tirata_orizzontale: { bg: '#9B7EDE', text: '#fff' },
   spinta_gambe: { bg: '#4CAF7D', text: '#111' },
   tirata_gambe: { bg: '#C4FF4D', text: '#111' },
   core: { bg: '#F2A93B', text: '#111' },
