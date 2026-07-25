@@ -41,19 +41,25 @@ export class TimerAudio {
     this.getCtx();
   }
 
-  beep() {
+  beep(long = false) {
     const ctx = this.getCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
+    const duration = long ? 0.4 : 0.15;
     osc.type = 'sine';
     osc.frequency.value = 880;
     gain.gain.setValueAtTime(0.0001, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start();
-    osc.stop(ctx.currentTime + 0.16);
+    osc.stop(ctx.currentTime + duration + 0.01);
+  }
+
+  /** Final 3-2-1 countdown: short beep, short beep, long beep — never spoken. */
+  playCountdownBeep(remaining: number) {
+    this.beep(remaining <= 1);
   }
 
   speakText(text: string) {
@@ -66,10 +72,6 @@ export class TimerAudio {
       if (voice) utter.voice = voice;
     }
     speechSynthesis.speak(utter);
-  }
-
-  speakNumber(n: number) {
-    this.speakText(String(n));
   }
 
   async speakPhrase(key: PhraseKey) {

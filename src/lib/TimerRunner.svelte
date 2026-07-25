@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
-  import type { Circuit } from './circuitTypes';
+  import { TIMER_FORMAT_LABELS, type Circuit } from './circuitTypes';
   import { buildTimeline, TimerEngine, type AnnounceSettings, type EngineSnapshot, type TimerPhase } from './timerEngine';
   import { TimerAudio, type VoiceSelection } from './timerAudio';
   import { WakeLockManager } from './wakeLock';
@@ -63,6 +63,40 @@
   const totalCycles = config.timerFormat === 'tabata' ? config.tabata.cycles : 0;
   const totalRounds = config.timerFormat === 'tabata' ? config.exerciseIds.length : config.timerFormat === 'emom' ? config.emom.rounds : 0;
 
+  const roundsRemaining = $derived.by(() => {
+    if (totalRounds === 0) return 0;
+    const round = snapshot.phase.round;
+    if (round == null) return totalRounds;
+    return Math.max(1, totalRounds - round + 1);
+  });
+
+  const cyclesRemaining = $derived.by(() => {
+    if (totalCycles === 0) return 0;
+    const cycle = snapshot.phase.cycle;
+    if (cycle == null) return totalCycles;
+    return Math.max(1, totalCycles - cycle + 1);
+  });
+
+  const nextPhase = $derived.by<TimerPhase | null>(() => {
+    const next = phases[snapshot.phaseIndex + 1];
+    return next && next.kind !== 'done' ? next : null;
+  });
+
+  const totalRemainingSeconds = $derived.by(() => {
+    let sum = snapshot.remaining;
+    for (let i = snapshot.phaseIndex + 1; i < phases.length; i++) {
+      sum += phases[i].durationSeconds;
+    }
+    return sum;
+  });
+
+  const phaseIsGreen = $derived(
+    snapshot.phase.kind === 'work' || snapshot.phase.kind === 'interval' || snapshot.phase.kind === 'amrap',
+  );
+  const phaseIsRed = $derived(
+    snapshot.phase.kind === 'rest' || snapshot.phase.kind === 'rest_cycle' || snapshot.phase.kind === 'prepare',
+  );
+
   onMount(() => {
     audio.setComputerVoice(voiceSelection.computerVoiceURI);
     audio.setMode(voiceSelection.mode === 'profile' ? { kind: 'profile', profileId: voiceSelection.profileId } : { kind: 'computer' });
@@ -108,16 +142,24 @@
       <button class="btn-close" onclick={handleExit}>Chiudi</button>
     </div>
   {:else}
-    <div class="phase-label" class:is-rest={snapshot.phase.kind === 'rest' || snapshot.phase.kind === 'rest_cycle'} class:is-prepare={snapshot.phase.kind === 'prepare'}>
-      {PHASE_LABELS[snapshot.phase.kind]}
+    <div class="header-row" class:is-green={phaseIsGreen} class:is-red={phaseIsRed}>
+      <span class="header-format">{TIMER_FORMAT_LABELS[config.timerFormat]}</span>
+      <span class="header-clock">{formatClock(totalRemainingSeconds)}</span>
     </div>
 
-    <div class="clock">{formatClock(snapshot.remaining)}</div>
+    <div class="phase-banner" class:is-green={phaseIsGreen} class:is-red={phaseIsRed}>
+      <div class="phase-banner-label">{PHASE_LABELS[snapshot.phase.kind]}</div>
+      <div class="phase-banner-clock">{formatClock(snapshot.remaining)}</div>
+    </div>
 
-    {#if config.timerFormat === 'tabata' && snapshot.phase.kind !== 'prepare'}
-      <div class="meta">Round {(snapshot.phase.round ?? currentRoundIndex + 1)}/{totalRounds} · Ciclo {(snapshot.phase.cycle ?? 1)}/{totalCycles}</div>
-    {:else if config.timerFormat === 'emom' && snapshot.phase.kind === 'interval'}
-      <div class="meta">Round {snapshot.phase.round}/{totalRounds}</div>
+    {#if nextPhase}
+      <div
+        class="next-banner"
+        class:is-green={nextPhase.kind === 'work' || nextPhase.kind === 'interval' || nextPhase.kind === 'amrap'}
+        class:is-red={nextPhase.kind === 'rest' || nextPhase.kind === 'rest_cycle' || nextPhase.kind === 'prepare'}
+      >
+        {PHASE_LABELS[nextPhase.kind]}: {formatClock(nextPhase.durationSeconds)}
+      </div>
     {/if}
 
     {#if exerciseNames.length > 0}
@@ -131,12 +173,30 @@
       </div>
     {/if}
 
-    <div class="controls-row">
-      <button class="btn-pause" onclick={handlePauseToggle}>
-        {snapshot.running ? '⏸ Pausa' : '▶ Riprendi'}
-      </button>
-      <button class="btn-stop" onclick={handleStop}>■ Stop</button>
+    <div class="stats-row">
+      <div class="stat-col">
+        {#if totalRounds > 0}
+          <div class="stat-number stat-round">{roundsRemaining}</div>
+          <div class="stat-label">Round rimasti</div>
+        {/if}
+      </div>
+
+      <div class="stat-col center-col">
+        <button class="btn-pause" onclick={handlePauseToggle} aria-label={snapshot.running ? 'Pausa' : 'Riprendi'}>
+          {snapshot.running ? '⏸' : '▶'}
+        </button>
+        <div class="pause-label">{snapshot.running ? 'Pausa' : 'Riprendi'}</div>
+      </div>
+
+      <div class="stat-col">
+        {#if totalCycles > 0}
+          <div class="stat-number stat-cicli">{cyclesRemaining}</div>
+          <div class="stat-label">Cicli rimasti</div>
+        {/if}
+      </div>
     </div>
+
+    <button class="btn-stop" onclick={handleStop}>■ Stop</button>
   {/if}
 </div>
 
@@ -148,48 +208,106 @@
     background: var(--bg);
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    overflow-y: auto;
+  }
+
+  .header-row {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    padding: 40px 24px 32px;
-  }
-
-  .phase-label {
-    font-size: 20px;
-    font-weight: 800;
+    gap: 2px;
+    padding: 24px 24px 16px;
+    flex-shrink: 0;
     color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
 
-  .phase-label.is-rest {
-    color: #5fb8c9;
+  .header-row.is-green {
+    color: #8ce05a;
   }
 
-  .phase-label.is-prepare {
-    color: var(--text-muted);
+  .header-row.is-red {
+    color: #f26d6d;
   }
 
-  .clock {
-    font-size: 96px;
+  .header-format {
+    font-size: 13px;
     font-weight: 800;
-    line-height: 1;
-    margin: 16px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .header-clock {
+    font-size: 22px;
+    font-weight: 800;
     font-variant-numeric: tabular-nums;
   }
 
-  .meta {
-    font-size: 15px;
-    font-weight: 600;
+  .phase-banner {
+    flex-shrink: 0;
+    width: 100%;
+    padding: 28px 24px 32px;
+    text-align: center;
+    background: var(--bg-elevated);
+    color: var(--text);
+  }
+
+  .phase-banner.is-green {
+    background: #8ce05a;
+    color: #111;
+  }
+
+  .phase-banner.is-red {
+    background: #f26d6d;
+    color: #fff;
+  }
+
+  .phase-banner-label {
+    font-size: 26px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 6px;
+  }
+
+  .phase-banner-clock {
+    font-size: 76px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .next-banner {
+    flex-shrink: 0;
+    width: 100%;
+    padding: 12px 24px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    background: var(--bg-elevated);
     color: var(--text-muted);
-    margin-bottom: 20px;
+  }
+
+  .next-banner.is-green {
+    background: rgba(140, 224, 90, 0.18);
+    color: #8ce05a;
+  }
+
+  .next-banner.is-red {
+    background: rgba(242, 109, 109, 0.18);
+    color: #f26d6d;
   }
 
   .exercise-list {
     width: 100%;
     max-width: 360px;
+    margin: 20px auto 0;
+    padding: 0 24px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    overflow-y: auto;
     flex: 1;
   }
 
@@ -219,27 +337,77 @@
     font-weight: 700;
   }
 
-  .controls-row {
-    margin-top: 24px;
-    width: 100%;
-    max-width: 360px;
+  .stats-row {
+    flex-shrink: 0;
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 12px;
+    padding: 28px 32px 16px;
+    margin-top: auto;
+  }
+
+  .stat-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .stat-number {
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-round {
+    color: #5fb8c9;
+  }
+
+  .stat-cicli {
+    color: #f2c94c;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-align: center;
+  }
+
+  .center-col {
+    flex: 0 0 auto;
   }
 
   .btn-pause {
-    flex: 1;
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
     background: var(--accent);
     border: none;
-    border-radius: var(--radius-md);
-    padding: 15px;
     color: #fff;
-    font-size: 16px;
+    font-size: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pause-label {
+    font-size: 12px;
     font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
   }
 
   .btn-stop {
-    flex: 1;
+    flex-shrink: 0;
+    margin: 8px 24px 24px;
     background: transparent;
     border: 1px solid #f26d6d;
     border-radius: var(--radius-md);

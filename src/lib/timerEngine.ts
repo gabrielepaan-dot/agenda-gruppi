@@ -40,9 +40,9 @@ function buildTabataTimeline(exerciseIds: number[], params: Circuit['tabata']): 
       const isLastExerciseOfCycle = round === n - 1;
       const isLastCycle = cycle === params.cycles - 1;
       if (!isLastExerciseOfCycle) {
-        phases.push({ kind: 'rest', durationSeconds: params.restSeconds });
+        phases.push({ kind: 'rest', durationSeconds: params.restSeconds, round: round + 1, cycle: cycle + 1 });
       } else if (!isLastCycle) {
-        phases.push({ kind: 'rest_cycle', durationSeconds: params.restBetweenCyclesSeconds });
+        phases.push({ kind: 'rest_cycle', durationSeconds: params.restBetweenCyclesSeconds, round: round + 1, cycle: cycle + 1 });
       }
     }
   }
@@ -170,10 +170,10 @@ export class TimerEngine {
 
   private maybeCue(phase: TimerPhase, remaining: number) {
     if (phase.kind === 'prepare') {
-      if (remaining >= 1 && remaining <= phase.durationSeconds && !this.cued.has(remaining)) {
+      const cueWindow = Math.min(3, phase.durationSeconds);
+      if (remaining >= 1 && remaining <= cueWindow && !this.cued.has(remaining)) {
         this.cued.add(remaining);
-        if (this.voiceActive) this.audio.speakNumber(remaining);
-        else this.audio.beep();
+        this.audio.playCountdownBeep(remaining);
       }
       return;
     }
@@ -182,16 +182,18 @@ export class TimerEngine {
     if (remaining < 1 || remaining > cueWindow) return;
     const next = this.phases[this.phaseIndex + 1];
     const isCompletionWindow = !next || next.kind === 'done';
-    if (this.voiceActive) {
-      if (!this.cued.has('voice')) {
-        this.cued.add('voice');
-        if (isCompletionWindow) this.announceCompletion();
-        else this.speakUpcoming(next);
-      }
-    } else if (!this.cued.has(remaining)) {
+
+    // The final 3-2-1 countdown is always beeped, never spoken — independent of voice settings.
+    if (!this.cued.has(remaining)) {
       this.cued.add(remaining);
-      this.audio.beep();
-      if (isCompletionWindow) this.completionAnnounced = true;
+      this.audio.playCountdownBeep(remaining);
+      if (isCompletionWindow && !this.voiceActive) this.completionAnnounced = true;
+    }
+
+    if (this.voiceActive && !this.cued.has('voice')) {
+      this.cued.add('voice');
+      if (isCompletionWindow) this.announceCompletion();
+      else this.speakUpcoming(next);
     }
   }
 
