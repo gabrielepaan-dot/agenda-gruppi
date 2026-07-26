@@ -8,6 +8,7 @@ export async function duplicateSessionTo(session: Session, newDate: string): Pro
     date: newDate,
     groupId: session.groupId,
     notes: session.notes,
+    tipologie: [...(session.tipologie ?? [])],
   })) as number;
   await copyCircuits('session', session.id!, 'session', newSessionId);
   return newSessionId;
@@ -24,7 +25,7 @@ export async function ensureSessionForDate(date: string, groupId: GroupId): Prom
   if (past.length > 0) {
     newId = await duplicateSessionTo(past[0], date);
   } else {
-    newId = (await db.sessions.add({ date, groupId, notes: '' })) as number;
+    newId = (await db.sessions.add({ date, groupId, notes: '', tipologie: [] })) as number;
   }
   return (await db.sessions.get(newId))!;
 }

@@ -24,7 +24,6 @@ export async function copyCircuits(
       ownerId: toId,
       order: c.order,
       name: c.name,
-      tipologia: c.tipologia,
       exerciseIds: [...c.exerciseIds],
       timerFormat: c.timerFormat,
       tabata: { ...c.tabata },

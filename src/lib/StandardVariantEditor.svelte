@@ -1,20 +1,23 @@
 <script lang="ts">
   import { db } from './db';
-  import { GROUPS, toIsoDate, nextScheduledDate, type GroupId } from './groups';
+  import { GROUPS, toIsoDate, nextScheduledDate, candidateDatesForGroup, formatShortDate, type GroupId } from './groups';
   import { ensureSessionForDate } from './sessionService';
   import { applyVariantToSession } from './standardService';
   import { getCircuitsFor, deleteCircuitsFor } from './circuitService';
   import {
+    TIPOLOGIE,
     TIPOLOGIA_LABELS,
     TIPOLOGIA_COLORS,
     TIMER_FORMAT_LABELS,
     TIMER_FORMAT_COLORS,
     circuitSummary,
     type Circuit,
+    type Tipologia,
   } from './circuitTypes';
   import type { StandardVariant } from './standardTypes';
   import CircuitForm from './CircuitForm.svelte';
   import Timer from './Timer.svelte';
+  import NotesList from './NotesList.svelte';
 
   let {
     variant,
@@ -25,15 +28,28 @@
 
   const group = GROUPS[groupId];
 
-  const WEEKDAY_SHORT: Record<number, string> = { 0: 'dom', 1: 'lun', 2: 'mar', 3: 'mer', 4: 'gio', 5: 'ven', 6: 'sab' };
+  const dateCandidates = (() => {
+    const base = candidateDatesForGroup(groupId);
+    return base.includes(variant.date) ? base : [...base, variant.date].sort();
+  })();
 
-  function formatShortDate(isoDate: string): string {
-    const [y, m, d] = isoDate.split('-').map(Number);
-    const date = new Date(y, m - 1, d);
-    return `${WEEKDAY_SHORT[date.getDay()]} ${d}`;
+  let date = $state(variant.date);
+  let dateEditorOpen = $state(false);
+  let pickedDate = $state(variant.date);
+
+  function openDateEditor() {
+    pickedDate = date;
+    dateEditorOpen = true;
+  }
+
+  async function saveDate() {
+    date = pickedDate;
+    await db.standardVariants.update(variant.id!, { date });
+    dateEditorOpen = false;
   }
 
   let notes = $state(variant.notes);
+  let tipologie = $state<Tipologia[]>([...(variant.tipologie ?? [])]);
   let circuits = $state<Circuit[]>([]);
   let circuitFormOpen = $state(false);
   let editingCircuit = $state<Circuit | null>(null);
@@ -52,6 +68,11 @@
     await db.standardVariants.update(variant.id!, { notes });
     savedFlash = true;
     setTimeout(() => (savedFlash = false), 1200);
+  }
+
+  function toggleTipologia(t: Tipologia) {
+    tipologie = tipologie.includes(t) ? tipologie.filter((x) => x !== t) : [...tipologie, t];
+    db.standardVariants.update(variant.id!, { tipologie: [...tipologie] });
   }
 
   function openNewCircuit() {
@@ -91,16 +112,16 @@
     timerCircuit = null;
   }
 
-  async function applyToDate(date: string) {
+  async function applyToDate(targetDate: string) {
     await saveText();
-    const targetSession = await ensureSessionForDate(date, groupId);
-    await applyVariantToSession({ ...variant, notes }, targetSession);
-    appliedDate = date;
+    const targetSession = await ensureSessionForDate(targetDate, groupId);
+    await applyVariantToSession({ ...variant, notes, tipologie }, targetSession);
+    appliedDate = targetDate;
     setTimeout(() => (appliedDate = null), 1800);
   }
 
   async function deleteVariant() {
-    if (!confirm(`Eliminare l'allenamento "${variant.name}"?`)) return;
+    if (!confirm(`Eliminare l'allenamento del ${formatShortDate(date)}?`)) return;
     await deleteCircuitsFor('variant', variant.id!);
     await db.standardVariants.delete(variant.id!);
     onDeleted();
@@ -112,16 +133,30 @@
     <button class="icon-btn" onclick={onClose} aria-label="Chiudi">✕</button>
     <div class="title-block">
       <span class="group-pill" style="background:{group.color}">{group.name}</span>
-      <span class="date">{variant.name}</span>
+      <button class="date" onclick={openDateEditor}>{formatShortDate(date)}</button>
     </div>
     <span class="spacer"></span>
   </div>
 
   <div class="content">
-    <label class="field">
-      <span>Note</span>
-      <textarea bind:value={notes} onblur={saveText} rows="3" placeholder="Note libere sull'allenamento"></textarea>
-    </label>
+    <NotesList bind:value={notes} onCommit={saveText} />
+
+    <div class="field">
+      <span>Tipologia</span>
+      <div class="tipologia-toggle-row">
+        {#each TIPOLOGIE as t}
+          <button
+            type="button"
+            class="tipologia-toggle"
+            class:active={tipologie.includes(t)}
+            style={tipologie.includes(t) ? `background:${TIPOLOGIA_COLORS[t].bg}; border-color:${TIPOLOGIA_COLORS[t].bg}; color:${TIPOLOGIA_COLORS[t].text}` : ''}
+            onclick={() => toggleTipologia(t)}
+          >
+            {TIPOLOGIA_LABELS[t]}
+          </button>
+        {/each}
+      </div>
+    </div>
 
     <div class="field">
       <span>Circuiti ({circuits.length})</span>
@@ -134,12 +169,11 @@
           <button class="card-main" onclick={() => openEditCircuit(c)}>
             <div class="card-top">
               <span class="fmt-pill" style="background:{TIMER_FORMAT_COLORS[c.timerFormat]}">{TIMER_FORMAT_LABELS[c.timerFormat]}</span>
-              <span class="tipologia-pill" style="background:{TIPOLOGIA_COLORS[c.tipologia].bg}; color:{TIPOLOGIA_COLORS[c.tipologia].text}">
-                {TIPOLOGIA_LABELS[c.tipologia]}
-              </span>
             </div>
-            <div class="name">{c.name}</div>
-            <div class="sub">{circuitSummary(c)}</div>
+            <div class="name">{c.name || circuitSummary(c)}</div>
+            {#if c.name}
+              <div class="sub">{circuitSummary(c)}</div>
+            {/if}
           </button>
           <button class="play-btn" onclick={() => openTimer(c)} aria-label="Avvia timer">▶</button>
         </div>
@@ -179,6 +213,24 @@
   <Timer circuit={timerCircuit} onClose={closeTimer} />
 {/if}
 
+{#if dateEditorOpen}
+  <div class="overlay" role="button" tabindex="-1" onclick={() => (dateEditorOpen = false)} onkeydown={(e) => e.key === 'Escape' && (dateEditorOpen = false)}>
+    <div class="sheet" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+      <div class="handle-bar"></div>
+      <h2>Cambia data</h2>
+      <label class="field">
+        <span>Data</span>
+        <select bind:value={pickedDate}>
+          {#each dateCandidates as d}
+            <option value={d}>{formatShortDate(d)}</option>
+          {/each}
+        </select>
+      </label>
+      <button class="btn-save-date" onclick={saveDate}>Salva</button>
+    </div>
+  </div>
+{/if}
+
 <style>
   .screen {
     min-height: 100svh;
@@ -215,9 +267,12 @@
   }
 
   .date {
+    background: transparent;
+    border: none;
     font-size: 13px;
     color: var(--text);
     font-weight: 700;
+    padding: 2px 4px;
   }
 
   .icon-btn {
@@ -248,18 +303,6 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--text-muted);
-  }
-
-  textarea {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px 14px;
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--text);
-    font-family: inherit;
-    resize: vertical;
   }
 
   .flash {
@@ -334,13 +377,20 @@
     color: #111;
   }
 
-  .tipologia-pill {
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+  .tipologia-toggle-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .tipologia-toggle {
+    flex: 1;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
   }
 
   .card .name {
@@ -388,5 +438,57 @@
     color: #f26d6d;
     font-weight: 700;
     font-size: 14px;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: flex-end;
+    z-index: 110;
+  }
+
+  .sheet {
+    width: 100%;
+    background: var(--bg-elevated);
+    border-radius: 20px 20px 0 0;
+    padding: 12px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .handle-bar {
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    margin: 0 auto 4px;
+  }
+
+  .sheet h2 {
+    font-size: 18px;
+    font-weight: 800;
+  }
+
+  select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .btn-save-date {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 13px;
+    font-size: 15px;
+    font-weight: 700;
   }
 </style>

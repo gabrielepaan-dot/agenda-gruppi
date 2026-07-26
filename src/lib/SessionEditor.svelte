@@ -1,26 +1,30 @@
 <script lang="ts">
   import { db } from './db';
-  import { GROUPS, nextWeekIsoDate } from './groups';
+  import { GROUPS, nextWeekIsoDate, candidateDatesForGroup, formatShortDate } from './groups';
   import { duplicateSessionTo } from './sessionService';
   import { getCircuitsFor, deleteCircuitsFor } from './circuitService';
   import { saveSessionAsVariant } from './standardService';
   import {
+    TIPOLOGIE,
     TIPOLOGIA_LABELS,
     TIPOLOGIA_COLORS,
     TIMER_FORMAT_LABELS,
     TIMER_FORMAT_COLORS,
     circuitSummary,
     type Circuit,
+    type Tipologia,
   } from './circuitTypes';
   import type { Session } from './sessionTypes';
   import CircuitForm from './CircuitForm.svelte';
   import Timer from './Timer.svelte';
+  import NotesList from './NotesList.svelte';
 
   let { session, onClose, onDeleted }: { session: Session; onClose: () => void; onDeleted: () => void } = $props();
 
   const group = GROUPS[session.groupId];
 
   let notes = $state(session.notes);
+  let tipologie = $state<Tipologia[]>([...(session.tipologie ?? [])]);
   let circuits = $state<Circuit[]>([]);
   let circuitFormOpen = $state(false);
   let editingCircuit = $state<Circuit | null>(null);
@@ -29,8 +33,12 @@
   let duplicated = $state(false);
 
   let saveVariantOpen = $state(false);
-  let variantName = $state('');
+  let variantDate = $state(session.date);
   let variantSaved = $state(false);
+  const variantDateCandidates = (() => {
+    const base = candidateDatesForGroup(session.groupId);
+    return base.includes(session.date) ? base : [...base, session.date].sort();
+  })();
 
   async function loadCircuits() {
     circuits = await getCircuitsFor('session', session.id!);
@@ -42,6 +50,11 @@
     await db.sessions.update(session.id!, { notes });
     savedFlash = true;
     setTimeout(() => (savedFlash = false), 1200);
+  }
+
+  function toggleTipologia(t: Tipologia) {
+    tipologie = tipologie.includes(t) ? tipologie.filter((x) => x !== t) : [...tipologie, t];
+    db.sessions.update(session.id!, { tipologie: [...tipologie] });
   }
 
   function openNewCircuit() {
@@ -98,14 +111,12 @@
 
   async function openSaveVariant() {
     await saveText();
-    variantName = '';
+    variantDate = session.date;
     saveVariantOpen = true;
   }
 
   async function confirmSaveVariant() {
-    const trimmedName = variantName.trim();
-    if (!trimmedName) return;
-    await saveSessionAsVariant(session, trimmedName, notes);
+    await saveSessionAsVariant(session, notes, variantDate);
     saveVariantOpen = false;
     variantSaved = true;
     setTimeout(() => (variantSaved = false), 1800);
@@ -123,9 +134,23 @@
   </div>
 
   <div class="content">
+    <NotesList bind:value={notes} onCommit={saveText} />
+
     <div class="field">
-      <span>Note</span>
-      <textarea bind:value={notes} onblur={saveText} rows="3" placeholder="Note libere sulla sessione"></textarea>
+      <span>Tipologia</span>
+      <div class="tipologia-toggle-row">
+        {#each TIPOLOGIE as t}
+          <button
+            type="button"
+            class="tipologia-toggle"
+            class:active={tipologie.includes(t)}
+            style={tipologie.includes(t) ? `background:${TIPOLOGIA_COLORS[t].bg}; border-color:${TIPOLOGIA_COLORS[t].bg}; color:${TIPOLOGIA_COLORS[t].text}` : ''}
+            onclick={() => toggleTipologia(t)}
+          >
+            {TIPOLOGIA_LABELS[t]}
+          </button>
+        {/each}
+      </div>
     </div>
 
     <div class="field">
@@ -139,12 +164,11 @@
           <button class="card-main" onclick={() => openEditCircuit(c)}>
             <div class="card-top">
               <span class="fmt-pill" style="background:{TIMER_FORMAT_COLORS[c.timerFormat]}">{TIMER_FORMAT_LABELS[c.timerFormat]}</span>
-              <span class="tipologia-pill" style="background:{TIPOLOGIA_COLORS[c.tipologia].bg}; color:{TIPOLOGIA_COLORS[c.tipologia].text}">
-                {TIPOLOGIA_LABELS[c.tipologia]}
-              </span>
             </div>
-            <div class="name">{c.name}</div>
-            <div class="sub">{circuitSummary(c)}</div>
+            <div class="name">{c.name || circuitSummary(c)}</div>
+            {#if c.name}
+              <div class="sub">{circuitSummary(c)}</div>
+            {/if}
           </button>
           <button class="play-btn" onclick={() => openTimer(c)} aria-label="Avvia timer">▶</button>
         </div>
@@ -185,8 +209,12 @@
       <div class="handle-bar"></div>
       <h2>Salva come allenamento standard</h2>
       <label class="field">
-        <span>Nome allenamento</span>
-        <input type="text" bind:value={variantName} placeholder="Es. Allenamento A" />
+        <span>Data</span>
+        <select bind:value={variantDate}>
+          {#each variantDateCandidates as d}
+            <option value={d}>{formatShortDate(d)}</option>
+          {/each}
+        </select>
       </label>
       <button class="btn-save-variant" onclick={confirmSaveVariant}>Salva</button>
     </div>
@@ -268,18 +296,6 @@
     color: var(--text-muted);
   }
 
-  textarea {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px 14px;
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--text);
-    font-family: inherit;
-    resize: vertical;
-  }
-
   .flash {
     color: var(--success);
     font-size: 12px;
@@ -352,13 +368,20 @@
     color: #111;
   }
 
-  .tipologia-pill {
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+  .tipologia-toggle-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .tipologia-toggle {
+    flex: 1;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
   }
 
   .card .name {
@@ -434,6 +457,16 @@
   .sheet h2 {
     font-size: 18px;
     font-weight: 800;
+  }
+
+  select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
   }
 
   .btn-save-variant {

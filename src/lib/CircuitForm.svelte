@@ -3,8 +3,6 @@
   import { db } from './db';
   import { PATTERN_CATEGORIES, PATTERN_CATEGORY_LABELS, type Exercise } from './types';
   import {
-    TIPOLOGIE,
-    TIPOLOGIA_LABELS,
     TIMER_FORMATS,
     TIMER_FORMAT_LABELS,
     DEFAULT_TABATA_PARAMS,
@@ -12,7 +10,6 @@
     DEFAULT_AMRAP_PARAMS,
     type Circuit,
     type CircuitOwnerType,
-    type Tipologia,
     type TimerFormat,
     type TabataParams,
     type EmomParams,
@@ -36,7 +33,6 @@
   } = $props();
 
   let name = $state(circuit?.name ?? '');
-  let tipologia = $state<Tipologia>(circuit?.tipologia ?? 'forza');
   let timerFormat = $state<TimerFormat>(circuit?.timerFormat ?? 'tabata');
   let tabata = $state<TabataParams>({ ...DEFAULT_TABATA_PARAMS, ...circuit?.tabata });
   let emom = $state<EmomParams>({ ...DEFAULT_EMOM_PARAMS, ...circuit?.emom });
@@ -80,10 +76,6 @@
 
   async function save() {
     const trimmed = name.trim();
-    if (!trimmed) {
-      error = 'Inserisci un nome per il circuito.';
-      return;
-    }
     if (selectedItems.length === 0) {
       error = 'Aggiungi almeno un esercizio.';
       return;
@@ -108,7 +100,6 @@
       ownerId,
       order: circuit?.order ?? order,
       name: trimmed,
-      tipologia,
       exerciseIds: selectedItems.map((item) => item.exerciseId),
       timerFormat,
       tabata: { ...tabata },
@@ -143,17 +134,6 @@
       <span>Nome</span>
       <input type="text" bind:value={name} placeholder="Es. Circuito Trazioni" />
     </label>
-
-    <div class="field">
-      <span>Tipologia</span>
-      <div class="segmented">
-        {#each TIPOLOGIE as t}
-          <button class:active={tipologia === t} onclick={() => (tipologia = t)}>
-            {TIPOLOGIA_LABELS[t]}
-          </button>
-        {/each}
-      </div>
-    </div>
 
     <div class="field">
       <span>Esercizi ({selectedItems.length})</span>
@@ -374,28 +354,6 @@
   input:focus {
     outline: 2px solid var(--accent);
     outline-offset: -1px;
-  }
-
-  .segmented {
-    display: flex;
-    gap: 8px;
-  }
-
-  .segmented button {
-    flex: 1;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 11px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-muted);
-  }
-
-  .segmented button.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
   }
 
   .exercise-list {

@@ -3,6 +3,7 @@ import type { Exercise, VoiceRecording, VoiceProfile } from './types';
 import type { Circuit, TimerPreset } from './circuitTypes';
 import type { Session } from './sessionTypes';
 import type { StandardVariant } from './standardTypes';
+import { toIsoDate } from './groups';
 
 const db = new Dexie('agenda-gruppi') as Dexie & {
   exercises: EntityTable<Exercise, 'id'>;
@@ -64,6 +65,20 @@ db.version(7)
       variants.map((v: { id: number; categoryId: number }) =>
         tx.table('standardVariants').update(v.id, { groupId: groupIdByCategoryId.get(v.categoryId) }),
       ),
+    );
+  });
+
+db.version(8)
+  .stores({
+    standardVariants: '++id, groupId',
+  })
+  .upgrade(async (tx) => {
+    const today = toIsoDate(new Date());
+    const variants = await tx.table('standardVariants').toArray();
+    await Promise.all(
+      variants
+        .filter((v: { date?: string }) => !v.date)
+        .map((v: { id: number }) => tx.table('standardVariants').update(v.id, { date: today })),
     );
   });
 

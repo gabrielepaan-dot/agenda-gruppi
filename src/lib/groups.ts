@@ -60,3 +60,23 @@ export function nextScheduledDate(groupId: GroupId, fromDate: Date = new Date())
   }
   throw new Error('gruppo senza giorni schedulati');
 }
+
+const WEEKDAY_SHORT: Record<number, string> = { 0: 'dom', 1: 'lun', 2: 'mar', 3: 'mer', 4: 'gio', 5: 'ven', 6: 'sab' };
+
+export function formatShortDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return `${WEEKDAY_SHORT[date.getDay()]} ${d}`;
+}
+
+export function candidateDatesForGroup(groupId: GroupId, weeksBack = 8, weeksForward = 26): string[] {
+  const weekdays = WEEKLY_SCHEDULE.filter((s) => s.groupId === groupId).map((s) => s.weekday);
+  const dates: string[] = [];
+  const today = new Date();
+  for (let offset = -weeksBack * 7; offset <= weeksForward * 7; offset++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + offset);
+    if (weekdays.includes(d.getDay())) dates.push(toIsoDate(d));
+  }
+  return dates;
+}

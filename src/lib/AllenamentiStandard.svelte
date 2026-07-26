@@ -1,6 +1,15 @@
 <script lang="ts">
   import { db } from './db';
-  import { GROUPS, WEEKLY_SCHEDULE, type GroupId } from './groups';
+  import {
+    GROUPS,
+    WEEKLY_SCHEDULE,
+    candidateDatesForGroup,
+    formatShortDate,
+    toIsoDate,
+    nextScheduledDate,
+    type GroupId,
+  } from './groups';
+  import { TIPOLOGIA_LABELS, TIPOLOGIA_COLORS } from './circuitTypes';
   import type { StandardVariant } from './standardTypes';
   import StandardVariantEditor from './StandardVariantEditor.svelte';
 
@@ -18,7 +27,8 @@
   let openVariant = $state<StandardVariant | null>(null);
 
   let variantCreatorOpen = $state(false);
-  let newVariantName = $state('');
+  let newVariantDate = $state('');
+  let newVariantCandidateDates = $state<string[]>([]);
 
   async function openGroup(groupId: GroupId) {
     selectedGroupId = groupId;
@@ -32,14 +42,21 @@
   }
 
   function openNewVariant() {
-    newVariantName = '';
+    if (!selectedGroupId) return;
+    newVariantCandidateDates = candidateDatesForGroup(selectedGroupId);
+    const today = toIsoDate(new Date());
+    newVariantDate = newVariantCandidateDates.includes(today) ? today : nextScheduledDate(selectedGroupId);
     variantCreatorOpen = true;
   }
 
   async function createVariant() {
-    const trimmed = newVariantName.trim();
-    if (!trimmed || !selectedGroupId) return;
-    const id = await db.standardVariants.add({ groupId: selectedGroupId, name: trimmed, notes: '' });
+    if (!selectedGroupId || !newVariantDate) return;
+    const id = await db.standardVariants.add({
+      groupId: selectedGroupId,
+      date: newVariantDate,
+      notes: '',
+      tipologie: [],
+    });
     variantCreatorOpen = false;
     variants = await db.standardVariants.where('groupId').equals(selectedGroupId).toArray();
     openVariant = variants.find((v) => v.id === id) ?? null;
@@ -87,7 +104,18 @@
       {/if}
       {#each variants as v (v.id)}
         <button class="card" onclick={() => openExistingVariant(v)}>
-          <div class="name">{v.name}</div>
+          <div class="variant-info">
+            <div class="name">{formatShortDate(v.date)}</div>
+            {#if v.tipologie?.length}
+              <div class="tipologia-pills">
+                {#each v.tipologie as t}
+                  <span class="tipologia-pill" style="background:{TIPOLOGIA_COLORS[t].bg}; color:{TIPOLOGIA_COLORS[t].text}">
+                    {TIPOLOGIA_LABELS[t]}
+                  </span>
+                {/each}
+              </div>
+            {/if}
+          </div>
         </button>
       {/each}
     </div>
@@ -101,8 +129,12 @@
       <div class="handle-bar"></div>
       <h2>Nuovo allenamento</h2>
       <label class="field">
-        <span>Nome</span>
-        <input type="text" bind:value={newVariantName} placeholder="Es. Allenamento A" />
+        <span>Data</span>
+        <select bind:value={newVariantDate}>
+          {#each newVariantCandidateDates as d}
+            <option value={d}>{formatShortDate(d)}</option>
+          {/each}
+        </select>
       </label>
       <button class="btn-save" onclick={createVariant}>Crea</button>
     </div>
@@ -182,9 +214,30 @@
     font-weight: 600;
   }
 
+  .variant-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
   .name {
     font-size: 16px;
     font-weight: 700;
+  }
+
+  .tipologia-pills {
+    display: flex;
+    gap: 6px;
+  }
+
+  .tipologia-pill {
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
   }
 
   .group-pill {
@@ -256,7 +309,7 @@
     color: var(--text-muted);
   }
 
-  input {
+  select {
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);

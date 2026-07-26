@@ -78,7 +78,6 @@ export interface Circuit {
   ownerId: number;
   order: number;
   name: string;
-  tipologia: Tipologia;
   exerciseIds: number[];
   timerFormat: TimerFormat;
   tabata: TabataParams;
