@@ -70,7 +70,7 @@ export const DEFAULT_AMRAP_PARAMS: AmrapParams = {
   timeLimitSeconds: 600,
 };
 
-export type CircuitOwnerType = 'session' | 'variant';
+export type CircuitOwnerType = 'session' | 'allenamento';
 
 export interface Circuit {
   id?: number;

@@ -3,6 +3,7 @@
   import {
     GROUPS,
     WEEKLY_SCHEDULE,
+    WEEKDAY_NAMES,
     candidateDatesForGroup,
     formatShortDate,
     toIsoDate,
@@ -10,30 +11,28 @@
     type GroupId,
   } from './groups';
   import { TIPOLOGIA_LABELS, TIPOLOGIA_COLORS } from './circuitTypes';
-  import type { StandardVariant } from './standardTypes';
-  import StandardVariantEditor from './StandardVariantEditor.svelte';
-
-  const WEEKDAY_NAMES: Record<number, string> = { 1: 'lunedì', 2: 'martedì', 3: 'mercoledì', 4: 'giovedì' };
+  import { DEFAULT_SECTION_ORDER, type Allenamento } from './standardTypes';
+  import AllenamentoEditor from './AllenamentoEditor.svelte';
 
   function daysForGroup(groupId: GroupId): string {
     const days = WEEKLY_SCHEDULE.filter((s) => s.groupId === groupId).map((s) => WEEKDAY_NAMES[s.weekday]);
     return [...new Set(days)].join(', ');
   }
 
-  let view = $state<'groups' | 'variants'>('groups');
+  let view = $state<'groups' | 'allenamenti'>('groups');
   let selectedGroupId = $state<GroupId | null>(null);
 
-  let variants = $state<StandardVariant[]>([]);
-  let openVariant = $state<StandardVariant | null>(null);
+  let allenamenti = $state<Allenamento[]>([]);
+  let openAllenamento = $state<Allenamento | null>(null);
 
-  let variantCreatorOpen = $state(false);
-  let newVariantDate = $state('');
-  let newVariantCandidateDates = $state<string[]>([]);
+  let allenamentoCreatorOpen = $state(false);
+  let newAllenamentoDate = $state('');
+  let newAllenamentoCandidateDates = $state<string[]>([]);
 
   async function openGroup(groupId: GroupId) {
     selectedGroupId = groupId;
-    variants = await db.standardVariants.where('groupId').equals(groupId).toArray();
-    view = 'variants';
+    allenamenti = await db.allenamenti.where('groupId').equals(groupId).toArray();
+    view = 'allenamenti';
   }
 
   function backToGroups() {
@@ -41,40 +40,41 @@
     selectedGroupId = null;
   }
 
-  function openNewVariant() {
+  function openNewAllenamento() {
     if (!selectedGroupId) return;
-    newVariantCandidateDates = candidateDatesForGroup(selectedGroupId);
+    newAllenamentoCandidateDates = candidateDatesForGroup(selectedGroupId);
     const today = toIsoDate(new Date());
-    newVariantDate = newVariantCandidateDates.includes(today) ? today : nextScheduledDate(selectedGroupId);
-    variantCreatorOpen = true;
+    newAllenamentoDate = newAllenamentoCandidateDates.includes(today) ? today : nextScheduledDate(selectedGroupId);
+    allenamentoCreatorOpen = true;
   }
 
-  async function createVariant() {
-    if (!selectedGroupId || !newVariantDate) return;
-    const id = await db.standardVariants.add({
+  async function createAllenamento() {
+    if (!selectedGroupId || !newAllenamentoDate) return;
+    const id = await db.allenamenti.add({
       groupId: selectedGroupId,
-      date: newVariantDate,
+      date: newAllenamentoDate,
       esercizi: '',
       notes: '',
       tipologie: [],
+      sectionOrder: [...DEFAULT_SECTION_ORDER],
     });
-    variantCreatorOpen = false;
-    variants = await db.standardVariants.where('groupId').equals(selectedGroupId).toArray();
-    openVariant = variants.find((v) => v.id === id) ?? null;
+    allenamentoCreatorOpen = false;
+    allenamenti = await db.allenamenti.where('groupId').equals(selectedGroupId).toArray();
+    openAllenamento = allenamenti.find((v) => v.id === id) ?? null;
   }
 
-  function openExistingVariant(v: StandardVariant) {
-    openVariant = v;
+  function openExistingAllenamento(v: Allenamento) {
+    openAllenamento = v;
   }
 
-  async function handleVariantEditorClose() {
-    openVariant = null;
-    if (selectedGroupId) variants = await db.standardVariants.where('groupId').equals(selectedGroupId).toArray();
+  async function handleAllenamentoEditorClose() {
+    openAllenamento = null;
+    if (selectedGroupId) allenamenti = await db.allenamenti.where('groupId').equals(selectedGroupId).toArray();
   }
 
-  async function handleVariantDeleted() {
-    openVariant = null;
-    if (selectedGroupId) variants = await db.standardVariants.where('groupId').equals(selectedGroupId).toArray();
+  async function handleAllenamentoDeleted() {
+    openAllenamento = null;
+    if (selectedGroupId) allenamenti = await db.allenamenti.where('groupId').equals(selectedGroupId).toArray();
   }
 </script>
 
@@ -93,19 +93,19 @@
         </button>
       {/each}
     </div>
-  {:else if view === 'variants'}
+  {:else if view === 'allenamenti'}
     <div class="topbar">
       <button class="icon-btn" onclick={backToGroups} aria-label="Indietro">‹</button>
       <h1>{selectedGroupId ? GROUPS[selectedGroupId].name : ''}</h1>
       <span class="spacer"></span>
     </div>
     <div class="content">
-      {#if variants.length === 0}
+      {#if allenamenti.length === 0}
         <p class="empty">Nessun allenamento. Creane uno per iniziare.</p>
       {/if}
-      {#each variants as v (v.id)}
-        <button class="card" onclick={() => openExistingVariant(v)}>
-          <div class="variant-info">
+      {#each allenamenti as v (v.id)}
+        <button class="card" onclick={() => openExistingAllenamento(v)}>
+          <div class="allenamento-info">
             <div class="name">{formatShortDate(v.date)}</div>
             {#if v.tipologie?.length}
               <div class="tipologia-pills">
@@ -120,30 +120,30 @@
         </button>
       {/each}
     </div>
-    <button class="fab" onclick={openNewVariant} aria-label="Nuovo allenamento">+</button>
+    <button class="fab" onclick={openNewAllenamento} aria-label="Nuovo allenamento">+</button>
   {/if}
 </div>
 
-{#if variantCreatorOpen}
-  <div class="overlay" role="button" tabindex="-1" onclick={() => (variantCreatorOpen = false)} onkeydown={(e) => e.key === 'Escape' && (variantCreatorOpen = false)}>
+{#if allenamentoCreatorOpen}
+  <div class="overlay" role="button" tabindex="-1" onclick={() => (allenamentoCreatorOpen = false)} onkeydown={(e) => e.key === 'Escape' && (allenamentoCreatorOpen = false)}>
     <div class="sheet" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
       <div class="handle-bar"></div>
       <h2>Nuovo allenamento</h2>
       <label class="field">
         <span>Data</span>
-        <select bind:value={newVariantDate}>
-          {#each newVariantCandidateDates as d}
+        <select bind:value={newAllenamentoDate}>
+          {#each newAllenamentoCandidateDates as d}
             <option value={d}>{formatShortDate(d)}</option>
           {/each}
         </select>
       </label>
-      <button class="btn-save" onclick={createVariant}>Crea</button>
+      <button class="btn-save" onclick={createAllenamento}>Crea</button>
     </div>
   </div>
 {/if}
 
-{#if openVariant && selectedGroupId}
-  <StandardVariantEditor variant={openVariant} groupId={selectedGroupId} onClose={handleVariantEditorClose} onDeleted={handleVariantDeleted} />
+{#if openAllenamento && selectedGroupId}
+  <AllenamentoEditor allenamento={openAllenamento} groupId={selectedGroupId} onClose={handleAllenamentoEditorClose} onDeleted={handleAllenamentoDeleted} />
 {/if}
 
 <style>
@@ -215,7 +215,7 @@
     font-weight: 600;
   }
 
-  .variant-info {
+  .allenamento-info {
     display: flex;
     flex-direction: column;
     align-items: flex-start;

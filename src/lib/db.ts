@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { Exercise, VoiceRecording, VoiceProfile } from './types';
 import type { Circuit, TimerPreset } from './circuitTypes';
 import type { Session } from './sessionTypes';
-import type { StandardVariant } from './standardTypes';
+import type { Allenamento } from './standardTypes';
 import { toIsoDate } from './groups';
 
 const db = new Dexie('agenda-gruppi') as Dexie & {
@@ -12,7 +12,7 @@ const db = new Dexie('agenda-gruppi') as Dexie & {
   circuits: EntityTable<Circuit, 'id'>;
   timerPresets: EntityTable<TimerPreset, 'id'>;
   sessions: EntityTable<Session, 'id'>;
-  standardVariants: EntityTable<StandardVariant, 'id'>;
+  allenamenti: EntityTable<Allenamento, 'id'>;
 };
 
 db.version(1).stores({
@@ -81,5 +81,10 @@ db.version(8)
         .map((v: { id: number }) => tx.table('standardVariants').update(v.id, { date: today })),
     );
   });
+
+db.version(9).stores({
+  standardVariants: null,
+  allenamenti: '++id, groupId',
+});
 
 export { db };

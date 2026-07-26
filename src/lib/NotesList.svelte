@@ -5,7 +5,8 @@
   let {
     value = $bindable(''),
     onCommit,
-  }: { value?: string; onCommit?: () => void } = $props();
+    showHeader = true,
+  }: { value?: string; onCommit?: () => void; showHeader?: boolean } = $props();
 
   type Line = { id: string; text: string };
 
@@ -45,9 +46,11 @@
 </script>
 
 <div class="notes-list">
-  <div class="header-row">
-    <span class="label">Esercizi</span>
-  </div>
+  {#if showHeader}
+    <div class="header-row">
+      <span class="label">Esercizi</span>
+    </div>
+  {/if}
 
   <div
     class="lines-zone"
@@ -57,8 +60,10 @@
   >
     {#each lines as line, i (line.id)}
       <div class="line-row">
-        <span class="handle">≡</span>
-        <span class="badge">{i + 1}</span>
+        <div class="grip">
+          <span class="handle">≡</span>
+          <span class="badge">{i + 1}</span>
+        </div>
         <input
           type="text"
           bind:value={line.text}
@@ -99,20 +104,29 @@
   .line-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+  }
+
+  .grip {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px 6px 4px;
+    cursor: grab;
   }
 
   .handle {
     flex-shrink: 0;
     color: var(--text-faint);
-    font-size: 18px;
+    font-size: 24px;
     cursor: grab;
   }
 
   .badge {
     flex-shrink: 0;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     background: rgba(232, 98, 44, 0.15);
     color: var(--accent);

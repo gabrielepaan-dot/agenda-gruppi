@@ -61,12 +61,35 @@ export function nextScheduledDate(groupId: GroupId, fromDate: Date = new Date())
   throw new Error('gruppo senza giorni schedulati');
 }
 
-const WEEKDAY_SHORT: Record<number, string> = { 0: 'dom', 1: 'lun', 2: 'mar', 3: 'mer', 4: 'gio', 5: 'ven', 6: 'sab' };
+export const WEEKDAY_NAMES: Record<number, string> = {
+  0: 'domenica',
+  1: 'lunedì',
+  2: 'martedì',
+  3: 'mercoledì',
+  4: 'giovedì',
+  5: 'venerdì',
+  6: 'sabato',
+};
+
+const MONTH_NAMES: Record<number, string> = {
+  0: 'gennaio',
+  1: 'febbraio',
+  2: 'marzo',
+  3: 'aprile',
+  4: 'maggio',
+  5: 'giugno',
+  6: 'luglio',
+  7: 'agosto',
+  8: 'settembre',
+  9: 'ottobre',
+  10: 'novembre',
+  11: 'dicembre',
+};
 
 export function formatShortDate(isoDate: string): string {
   const [y, m, d] = isoDate.split('-').map(Number);
   const date = new Date(y, m - 1, d);
-  return `${WEEKDAY_SHORT[date.getDay()]} ${d}`;
+  return `${WEEKDAY_NAMES[date.getDay()]} ${d} ${MONTH_NAMES[m - 1]}`;
 }
 
 export function candidateDatesForGroup(groupId: GroupId, weeksBack = 8, weeksForward = 26): string[] {

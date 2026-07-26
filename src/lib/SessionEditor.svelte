@@ -3,7 +3,7 @@
   import { GROUPS, nextWeekIsoDate, candidateDatesForGroup, formatShortDate } from './groups';
   import { duplicateSessionTo } from './sessionService';
   import { getCircuitsFor, deleteCircuitsFor } from './circuitService';
-  import { saveSessionAsVariant } from './standardService';
+  import { saveSessionAsAllenamento } from './standardService';
   import {
     TIPOLOGIE,
     TIPOLOGIA_LABELS,
@@ -33,10 +33,10 @@
   let savedFlash = $state(false);
   let duplicated = $state(false);
 
-  let saveVariantOpen = $state(false);
-  let variantDate = $state(session.date);
-  let variantSaved = $state(false);
-  const variantDateCandidates = (() => {
+  let saveAllenamentoOpen = $state(false);
+  let allenamentoDate = $state(session.date);
+  let allenamentoSaved = $state(false);
+  const allenamentoDateCandidates = (() => {
     const base = candidateDatesForGroup(session.groupId);
     return base.includes(session.date) ? base : [...base, session.date].sort();
   })();
@@ -115,18 +115,18 @@
     onDeleted();
   }
 
-  async function openSaveVariant() {
+  async function openSaveAllenamento() {
     await saveEsercizi();
     await saveNotes();
-    variantDate = session.date;
-    saveVariantOpen = true;
+    allenamentoDate = session.date;
+    saveAllenamentoOpen = true;
   }
 
-  async function confirmSaveVariant() {
-    await saveSessionAsVariant(session, esercizi, notes, variantDate);
-    saveVariantOpen = false;
-    variantSaved = true;
-    setTimeout(() => (variantSaved = false), 1800);
+  async function confirmSaveAllenamento() {
+    await saveSessionAsAllenamento(session, esercizi, notes, allenamentoDate);
+    saveAllenamentoOpen = false;
+    allenamentoSaved = true;
+    setTimeout(() => (allenamentoSaved = false), 1800);
   }
 </script>
 
@@ -196,8 +196,8 @@
       {duplicated ? 'Duplicata ✓' : `↻ Duplica per ${nextWeekIsoDate(session.date)}`}
     </button>
 
-    <button class="btn-duplicate" onclick={openSaveVariant}>
-      {variantSaved ? 'Salvato come allenamento ✓' : '★ Salva come allenamento standard'}
+    <button class="btn-duplicate" onclick={openSaveAllenamento}>
+      {allenamentoSaved ? 'Salvato come allenamento ✓' : '★ Salva come allenamento standard'}
     </button>
 
     <button class="btn-delete" onclick={deleteSession}>Elimina sessione</button>
@@ -215,20 +215,20 @@
   />
 {/if}
 
-{#if saveVariantOpen}
-  <div class="overlay" role="button" tabindex="-1" onclick={() => (saveVariantOpen = false)} onkeydown={(e) => e.key === 'Escape' && (saveVariantOpen = false)}>
+{#if saveAllenamentoOpen}
+  <div class="overlay" role="button" tabindex="-1" onclick={() => (saveAllenamentoOpen = false)} onkeydown={(e) => e.key === 'Escape' && (saveAllenamentoOpen = false)}>
     <div class="sheet" role="dialog" aria-modal="true" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
       <div class="handle-bar"></div>
       <h2>Salva come allenamento standard</h2>
       <label class="field">
         <span>Data</span>
-        <select bind:value={variantDate}>
-          {#each variantDateCandidates as d}
+        <select bind:value={allenamentoDate}>
+          {#each allenamentoDateCandidates as d}
             <option value={d}>{formatShortDate(d)}</option>
           {/each}
         </select>
       </label>
-      <button class="btn-save-variant" onclick={confirmSaveVariant}>Salva</button>
+      <button class="btn-save-allenamento" onclick={confirmSaveAllenamento}>Salva</button>
     </div>
   </div>
 {/if}
@@ -498,7 +498,7 @@
     color: var(--text);
   }
 
-  .btn-save-variant {
+  .btn-save-allenamento {
     background: var(--accent);
     border: none;
     border-radius: var(--radius-sm);

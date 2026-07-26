@@ -1,32 +1,34 @@
 import { db } from './db';
 import type { Session } from './sessionTypes';
-import type { StandardVariant } from './standardTypes';
+import type { Allenamento } from './standardTypes';
 import { copyCircuits, deleteCircuitsFor } from './circuitService';
 import { toIsoDate } from './groups';
+import { DEFAULT_SECTION_ORDER } from './standardTypes';
 
-export async function applyVariantToSession(variant: StandardVariant, session: Session): Promise<void> {
+export async function applyAllenamentoToSession(allenamento: Allenamento, session: Session): Promise<void> {
   await db.sessions.update(session.id!, {
-    esercizi: variant.esercizi ?? '',
-    notes: variant.notes ?? '',
-    tipologie: [...(variant.tipologie ?? [])],
+    esercizi: allenamento.esercizi ?? '',
+    notes: allenamento.notes ?? '',
+    tipologie: [...(allenamento.tipologie ?? [])],
   });
   await deleteCircuitsFor('session', session.id!);
-  await copyCircuits('variant', variant.id!, 'session', session.id!);
+  await copyCircuits('allenamento', allenamento.id!, 'session', session.id!);
 }
 
-export async function saveSessionAsVariant(
+export async function saveSessionAsAllenamento(
   session: Session,
   esercizi: string,
   notes: string,
   date: string = toIsoDate(new Date()),
 ): Promise<number> {
-  const newVariantId = (await db.standardVariants.add({
+  const newAllenamentoId = (await db.allenamenti.add({
     groupId: session.groupId,
     date,
     esercizi,
     notes,
     tipologie: [...(session.tipologie ?? [])],
+    sectionOrder: [...DEFAULT_SECTION_ORDER],
   })) as number;
-  await copyCircuits('session', session.id!, 'variant', newVariantId);
-  return newVariantId;
+  await copyCircuits('session', session.id!, 'allenamento', newAllenamentoId);
+  return newAllenamentoId;
 }
