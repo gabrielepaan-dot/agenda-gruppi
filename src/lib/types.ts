@@ -26,7 +26,7 @@ export const PATTERN_CATEGORIES: PatternCategory[] = [
 export const PATTERN_CATEGORY_LABELS: Record<PatternCategory, string> = {
   spinta_verticale: 'Spinta verticale',
   spinta_orizzontale: 'Spinta orizzontale',
-  tirata_verticale: 'Tirata verticale',
+  tirata_verticale: 'Trazioni',
   tirata_orizzontale: 'Tirata orizzontale',
   spinta_gambe: 'Spinta gambe',
   tirata_gambe: 'Tirata gambe',
@@ -78,6 +78,7 @@ export interface Exercise {
   category: PatternCategory;
   coreSubcategory?: CoreSubcategory;
   quality?: Quality;
+  order?: number;
 }
 
 export type VoiceRecordingTarget =

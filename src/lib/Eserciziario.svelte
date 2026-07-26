@@ -1,25 +1,47 @@
 <script lang="ts">
+  import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
   import { db } from './db';
   import {
     PATTERN_CATEGORIES,
     PATTERN_CATEGORY_LABELS,
     PATTERN_CATEGORY_COLORS,
     CORE_SUBCATEGORY_LABELS,
+    QUALITIES,
     QUALITY_LABELS,
     type Exercise,
     type PatternCategory,
+    type Quality,
   } from './types';
   import ExerciseForm from './ExerciseForm.svelte';
 
   let exercises = $state<Exercise[]>([]);
   let formOpen = $state(false);
   let editingExercise = $state<Exercise | null>(null);
+  let qualityFilter = $state<Quality | null>(null);
+
+  function emptyLists(): Record<PatternCategory, Exercise[]> {
+    const obj = {} as Record<PatternCategory, Exercise[]>;
+    for (const cat of PATTERN_CATEGORIES) obj[cat] = [];
+    return obj;
+  }
+
+  let listsByCategory = $state<Record<PatternCategory, Exercise[]>>(emptyLists());
 
   async function load() {
-    exercises = await db.exercises.orderBy('name').toArray();
+    exercises = await db.exercises.toArray();
   }
 
   load();
+
+  $effect(() => {
+    const obj = emptyLists();
+    for (const ex of exercises) {
+      if (qualityFilter && ex.quality !== qualityFilter) continue;
+      obj[ex.category].push(ex);
+    }
+    for (const cat of PATTERN_CATEGORIES) obj[cat].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    listsByCategory = obj;
+  });
 
   function openNew() {
     editingExercise = null;
@@ -40,19 +62,34 @@
     await load();
   }
 
-  const grouped = $derived.by(() => {
-    const map = new Map<PatternCategory, Exercise[]>();
-    for (const cat of PATTERN_CATEGORIES) map.set(cat, []);
-    for (const ex of exercises) {
-      map.get(ex.category)?.push(ex);
-    }
-    return map;
-  });
+  function handleConsider(cat: PatternCategory, e: CustomEvent<{ items: Exercise[] }>) {
+    listsByCategory[cat] = e.detail.items;
+  }
+
+  async function handleFinalize(cat: PatternCategory, e: CustomEvent<{ items: Exercise[] }>) {
+    const items = e.detail.items;
+    listsByCategory[cat] = items;
+    await Promise.all(
+      items.map((ex, i) => {
+        ex.order = i;
+        return ex.id != null ? db.exercises.update(ex.id, { order: i }) : Promise.resolve();
+      }),
+    );
+  }
 </script>
 
 <div class="screen">
   <div class="topbar">
     <h1>Eserciziario</h1>
+  </div>
+
+  <div class="filter-row">
+    <button class="chip" class:active={qualityFilter === null} onclick={() => (qualityFilter = null)}>Tutti</button>
+    {#each QUALITIES as q}
+      <button class="chip" class:active={qualityFilter === q} onclick={() => (qualityFilter = q)}>
+        {QUALITY_LABELS[q]}
+      </button>
+    {/each}
   </div>
 
   <div class="content">
@@ -61,25 +98,35 @@
     {/if}
 
     {#each PATTERN_CATEGORIES as cat}
-      {@const list = grouped.get(cat) ?? []}
+      {@const list = listsByCategory[cat]}
       {#if list.length > 0}
         <div class="section-label">
           <span class="dot" style="background:{PATTERN_CATEGORY_COLORS[cat].bg}"></span>
           {PATTERN_CATEGORY_LABELS[cat]}
         </div>
-        {#each list as ex (ex.id)}
-          <button class="card" onclick={() => openEdit(ex)}>
-            <div class="left">
-              <div class="name">{ex.name}</div>
-              {#if ex.category === 'core' && ex.coreSubcategory}
-                <div class="sub">{CORE_SUBCATEGORY_LABELS[ex.coreSubcategory]}</div>
-              {/if}
+        <div
+          class="category-zone"
+          use:dragHandleZone={{ items: list, flipDurationMs: 150 }}
+          onconsider={(e) => handleConsider(cat, e)}
+          onfinalize={(e) => handleFinalize(cat, e)}
+        >
+          {#each list as ex (ex.id)}
+            <div class="card" style="border-left-color:{PATTERN_CATEGORY_COLORS[cat].bg}">
+              <span class="drag-handle" use:dragHandle>≡</span>
+              <button class="card-body" onclick={() => openEdit(ex)}>
+                <div class="left">
+                  <div class="name">{ex.name}</div>
+                  {#if ex.category === 'core' && ex.coreSubcategory}
+                    <div class="sub">{CORE_SUBCATEGORY_LABELS[ex.coreSubcategory]}</div>
+                  {/if}
+                </div>
+                {#if ex.quality}
+                  <span class="quality-pill">{QUALITY_LABELS[ex.quality]}</span>
+                {/if}
+              </button>
             </div>
-            {#if ex.quality}
-              <span class="quality-pill">{QUALITY_LABELS[ex.quality]}</span>
-            {/if}
-          </button>
-        {/each}
+          {/each}
+        </div>
       {/if}
     {/each}
   </div>
@@ -109,6 +156,29 @@
   .topbar h1 {
     font-size: 22px;
     font-weight: 800;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px 12px;
+    flex-shrink: 0;
+  }
+
+  .chip {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
   }
 
   .content {
@@ -142,25 +212,50 @@
     flex-shrink: 0;
   }
 
+  .category-zone {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 20px;
+  }
+
   .card {
-    width: calc(100% - 40px);
-    margin: 0 20px 10px;
+    display: flex;
+    align-items: stretch;
     background: var(--bg-elevated);
-    border: none;
+    border-left: 4px solid transparent;
     border-radius: var(--radius-lg);
-    padding: 14px 16px;
+    overflow: hidden;
+  }
+
+  .drag-handle {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 4px 0 10px;
+    color: var(--text-faint);
+    font-size: 20px;
+    cursor: grab;
+  }
+
+  .card-body {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    padding: 14px 16px 14px 6px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     text-align: left;
   }
 
-  .card .name {
+  .card-body .name {
     font-size: 16px;
     font-weight: 700;
   }
 
-  .card .sub {
+  .card-body .sub {
     font-size: 13px;
     color: var(--text-muted);
     margin-top: 2px;

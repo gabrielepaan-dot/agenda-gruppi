@@ -11,7 +11,7 @@
   type Line = { id: string; text: string };
 
   function linesFromValue(v: string): Line[] {
-    if (!v.length) return Array.from({ length: 8 }, () => ({ id: crypto.randomUUID(), text: '' }));
+    if (!v.length) return [{ id: crypto.randomUUID(), text: '' }];
     return v.split('\n').map((text) => ({ id: crypto.randomUUID(), text }));
   }
 

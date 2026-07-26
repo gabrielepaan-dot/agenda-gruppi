@@ -157,85 +157,82 @@
       <button class="add-exercise-btn" onclick={() => (pickerOpen = true)}>+ Aggiungi esercizio</button>
     </div>
 
-    <div class="field">
-      <span>Formato timer</span>
-      <div class="format-row">
+    <div class="timer-footer">
+      <div class="format-pills">
         <button
-          class="format-tabata"
+          class="pill"
           class:active={timerFormat === 'tabata'}
           onclick={() => (timerFormat = 'tabata')}
         >
           Tabata
         </button>
         <button
-          class="format-minor"
+          class="pill"
           class:active={timerFormat === 'emom'}
           onclick={() => (timerFormat = 'emom')}
         >
           Emom
         </button>
         <button
-          class="format-minor"
+          class="pill"
           class:active={timerFormat === 'amrap'}
           onclick={() => (timerFormat = 'amrap')}
         >
           Amrap
         </button>
       </div>
-    </div>
 
-    {#if timerFormat === 'tabata'}
-      <div class="params-grid">
-        <label class="field small">
-          <span>Prepara (sec)</span>
-          <input type="number" min="0" bind:value={tabata.prepareSeconds} />
-        </label>
-        <label class="field small">
-          <span>Lavoro (sec)</span>
-          <input type="number" min="1" bind:value={tabata.workSeconds} />
-        </label>
-      </div>
-      <div class="params-grid">
-        <label class="field small">
-          <span>Riposo (sec)</span>
-          <input type="number" min="0" bind:value={tabata.restSeconds} />
-        </label>
-        <label class="field small">
-          <span>Cicli</span>
-          <input type="number" min="1" bind:value={tabata.cycles} />
-        </label>
-      </div>
-      <label class="field small">
-        <span>Riposo tra cicli (sec)</span>
-        <input type="number" min="0" bind:value={tabata.restBetweenCyclesSeconds} />
-      </label>
-    {:else if timerFormat === 'emom'}
-      <div class="params-grid">
-        <label class="field small">
-          <span>Prepara (sec)</span>
-          <input type="number" min="0" bind:value={emom.prepareSeconds} />
-        </label>
-        <label class="field small">
-          <span>Intervallo (sec)</span>
-          <input type="number" min="1" bind:value={emom.intervalSeconds} />
-        </label>
-      </div>
-      <label class="field small">
-        <span>Round</span>
-        <input type="number" min="1" bind:value={emom.rounds} />
-      </label>
-    {:else}
-      <div class="params-grid">
-        <label class="field small">
-          <span>Prepara (sec)</span>
-          <input type="number" min="0" bind:value={amrap.prepareSeconds} />
-        </label>
-        <label class="field small">
-          <span>Tempo limite (sec)</span>
-          <input type="number" min="1" bind:value={amrap.timeLimitSeconds} />
-        </label>
-      </div>
-    {/if}
+      {#if timerFormat === 'tabata'}
+        <div class="params-inline">
+          <label class="param">
+            <span>Prepara</span>
+            <input type="number" min="0" bind:value={tabata.prepareSeconds} />
+          </label>
+          <label class="param">
+            <span>Lavoro</span>
+            <input type="number" min="1" bind:value={tabata.workSeconds} />
+          </label>
+          <label class="param">
+            <span>Riposo</span>
+            <input type="number" min="0" bind:value={tabata.restSeconds} />
+          </label>
+          <label class="param">
+            <span>Cicli</span>
+            <input type="number" min="1" bind:value={tabata.cycles} />
+          </label>
+          <label class="param">
+            <span>Rip. cicli</span>
+            <input type="number" min="0" bind:value={tabata.restBetweenCyclesSeconds} />
+          </label>
+        </div>
+      {:else if timerFormat === 'emom'}
+        <div class="params-inline">
+          <label class="param">
+            <span>Prepara</span>
+            <input type="number" min="0" bind:value={emom.prepareSeconds} />
+          </label>
+          <label class="param">
+            <span>Intervallo</span>
+            <input type="number" min="1" bind:value={emom.intervalSeconds} />
+          </label>
+          <label class="param">
+            <span>Round</span>
+            <input type="number" min="1" bind:value={emom.rounds} />
+          </label>
+        </div>
+      {:else}
+        <div class="params-inline">
+          <label class="param">
+            <span>Prepara</span>
+            <input type="number" min="0" bind:value={amrap.prepareSeconds} />
+          </label>
+          <label class="param">
+            <span>Tempo limite</span>
+            <input type="number" min="1" bind:value={amrap.timeLimitSeconds} />
+          </label>
+        </div>
+      {/if}
+    </div>
 
     {#if error}
       <p class="error">{error}</p>
@@ -335,10 +332,6 @@
     color: var(--text-muted);
   }
 
-  .field.small {
-    gap: 6px;
-  }
-
   input[type='text'],
   input[type='number'] {
     background: var(--bg-elevated);
@@ -404,50 +397,58 @@
     font-size: 14px;
   }
 
-  .format-row {
+  .timer-footer {
+    margin: auto -20px 0;
+    padding: 16px 20px;
+    background: var(--bg-navbar);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .format-pills {
     display: flex;
     gap: 8px;
-    align-items: stretch;
   }
 
-  .format-tabata {
-    flex: 2;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 14px;
-    font-size: 16px;
-    font-weight: 800;
-    color: var(--text-muted);
-  }
-
-  .format-tabata.active {
-    background: #c4ff4d;
-    border-color: #c4ff4d;
-    color: #111;
-  }
-
-  .format-minor {
+  .pill {
     flex: 1;
     background: var(--bg-elevated);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 10px 6px;
+    border-radius: var(--radius-pill);
+    padding: 8px 10px;
     font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+
+  .pill.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .params-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .param {
+    flex: 1;
+    min-width: 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
     font-weight: 600;
-    color: var(--text-faint);
+    color: var(--text-muted);
   }
 
-  .format-minor.active {
-    background: var(--bg-navbar);
-    border-color: var(--text-faint);
-    color: var(--text);
-  }
-
-  .params-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+  .param input[type='number'] {
+    padding: 8px 10px;
+    font-size: 14px;
   }
 
   .error {

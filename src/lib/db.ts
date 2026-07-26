@@ -87,4 +87,21 @@ db.version(9).stores({
   allenamenti: '++id, groupId',
 });
 
+db.version(10)
+  .stores({
+    exercises: '++id, name, category',
+  })
+  .upgrade(async (tx) => {
+    const all = await tx.table('exercises').toArray();
+    all.sort((a: Exercise, b: Exercise) => a.name.localeCompare(b.name));
+    const counters = new Map<string, number>();
+    await Promise.all(
+      all.map((ex: Exercise) => {
+        const n = counters.get(ex.category) ?? 0;
+        counters.set(ex.category, n + 1);
+        return tx.table('exercises').update(ex.id, { order: n });
+      }),
+    );
+  });
+
 export { db };

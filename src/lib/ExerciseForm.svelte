@@ -45,8 +45,12 @@
       quality: quality ? (quality as Quality) : undefined,
     };
     if (exercise?.id) {
+      if (category !== exercise.category) {
+        payload.order = await db.exercises.where('category').equals(category).count();
+      }
       await db.exercises.update(exercise.id, payload);
     } else {
+      payload.order = await db.exercises.where('category').equals(category).count();
       await db.exercises.add(payload);
     }
     onSaved();
