@@ -1,7 +1,12 @@
 <script lang="ts">
   import { dndzone } from 'svelte-dnd-action';
   import { db } from './db';
-  import { PATTERN_CATEGORIES, PATTERN_CATEGORY_LABELS, type Exercise } from './types';
+  import {
+    PATTERN_CATEGORIES,
+    PATTERN_CATEGORY_LABELS,
+    PATTERN_CATEGORY_COLORS,
+    type Exercise,
+  } from './types';
   import {
     TIMER_FORMATS,
     TIMER_FORMAT_LABELS,
@@ -146,7 +151,10 @@
         >
           {#each selectedItems as item (item.id)}
             {@const ex = exercisesById.get(item.exerciseId)}
-            <div class="exercise-row">
+            <div
+              class="exercise-row"
+              style="border-left-color:{ex ? PATTERN_CATEGORY_COLORS[ex.category].bg : 'transparent'}"
+            >
               <span class="handle">≡</span>
               <span class="ex-name">{ex?.name ?? '—'}</span>
               <button class="remove-btn" onclick={() => removeItem(item.id)} aria-label="Rimuovi">✕</button>
@@ -260,9 +268,18 @@
         {#each PATTERN_CATEGORIES as cat}
           {@const list = groupedForPicker.get(cat) ?? []}
           {#if list.length > 0}
-            <div class="picker-section-label">{PATTERN_CATEGORY_LABELS[cat]}</div>
+            <div class="picker-section-label">
+              <span class="dot" style="background:{PATTERN_CATEGORY_COLORS[cat].bg}"></span>
+              {PATTERN_CATEGORY_LABELS[cat]}
+            </div>
             {#each list as ex (ex.id)}
-              <button class="picker-row" onclick={() => addExercise(ex)}>{ex.name}</button>
+              <button
+                class="picker-row"
+                style="border-left-color:{PATTERN_CATEGORY_COLORS[cat].bg}"
+                onclick={() => addExercise(ex)}
+              >
+                {ex.name}
+              </button>
             {/each}
           {/if}
         {/each}
@@ -360,6 +377,7 @@
     align-items: center;
     gap: 10px;
     background: var(--bg-elevated);
+    border-left: 4px solid transparent;
     border-radius: var(--radius-sm);
     padding: 10px 12px;
   }
@@ -509,6 +527,9 @@
   }
 
   .picker-section-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     padding: 12px 4px 4px;
     font-size: 12px;
     font-weight: 700;
@@ -516,11 +537,19 @@
     text-transform: uppercase;
   }
 
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
   .picker-row {
     text-align: left;
     background: transparent;
     border: none;
-    padding: 10px 4px;
+    border-left: 4px solid transparent;
+    padding: 10px 4px 10px 8px;
     font-size: 15px;
     font-weight: 500;
     color: var(--text);
