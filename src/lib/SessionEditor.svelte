@@ -23,7 +23,8 @@
 
   const group = GROUPS[session.groupId];
 
-  let notes = $state(session.notes);
+  let esercizi = $state(session.esercizi ?? '');
+  let notes = $state(session.notes ?? '');
   let tipologie = $state<Tipologia[]>([...(session.tipologie ?? [])]);
   let circuits = $state<Circuit[]>([]);
   let circuitFormOpen = $state(false);
@@ -46,10 +47,14 @@
 
   loadCircuits();
 
-  async function saveText() {
-    await db.sessions.update(session.id!, { notes });
+  async function saveEsercizi() {
+    await db.sessions.update(session.id!, { esercizi });
     savedFlash = true;
     setTimeout(() => (savedFlash = false), 1200);
+  }
+
+  async function saveNotes() {
+    await db.sessions.update(session.id!, { notes });
   }
 
   function toggleTipologia(t: Tipologia) {
@@ -95,9 +100,10 @@
   }
 
   async function duplicateForNextWeek() {
-    await saveText();
+    await saveEsercizi();
+    await saveNotes();
     const newDate = nextWeekIsoDate(session.date);
-    await duplicateSessionTo({ ...session, notes }, newDate);
+    await duplicateSessionTo({ ...session, esercizi, notes }, newDate);
     duplicated = true;
     setTimeout(() => (duplicated = false), 1800);
   }
@@ -110,13 +116,14 @@
   }
 
   async function openSaveVariant() {
-    await saveText();
+    await saveEsercizi();
+    await saveNotes();
     variantDate = session.date;
     saveVariantOpen = true;
   }
 
   async function confirmSaveVariant() {
-    await saveSessionAsVariant(session, notes, variantDate);
+    await saveSessionAsVariant(session, esercizi, notes, variantDate);
     saveVariantOpen = false;
     variantSaved = true;
     setTimeout(() => (variantSaved = false), 1800);
@@ -134,8 +141,6 @@
   </div>
 
   <div class="content">
-    <NotesList bind:value={notes} onCommit={saveText} />
-
     <div class="field">
       <span>Tipologia</span>
       <div class="tipologia-toggle-row">
@@ -152,6 +157,13 @@
         {/each}
       </div>
     </div>
+
+    <label class="field">
+      <span>Note</span>
+      <textarea bind:value={notes} onblur={saveNotes} placeholder="Note libere sulla sessione" rows="3"></textarea>
+    </label>
+
+    <NotesList bind:value={esercizi} onCommit={saveEsercizi} />
 
     <div class="field">
       <span>Circuiti ({circuits.length})</span>
@@ -378,10 +390,27 @@
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 11px;
-    font-size: 13px;
+    padding: 8px 6px;
+    font-size: 11px;
     font-weight: 700;
     color: var(--text-muted);
+  }
+
+  textarea {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--text);
+    resize: vertical;
+  }
+
+  textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
   }
 
   .card .name {

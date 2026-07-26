@@ -5,6 +5,7 @@ export interface StandardVariant {
   id?: number;
   groupId: GroupId;
   date: string; // 'YYYY-MM-DD', default label for this reusable template
+  esercizi: string;
   notes: string;
   tipologie: Tipologia[];
 }

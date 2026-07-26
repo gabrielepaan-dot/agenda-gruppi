@@ -54,6 +54,7 @@
     const id = await db.standardVariants.add({
       groupId: selectedGroupId,
       date: newVariantDate,
+      esercizi: '',
       notes: '',
       tipologie: [],
     });

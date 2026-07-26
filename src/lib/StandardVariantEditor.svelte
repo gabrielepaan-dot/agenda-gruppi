@@ -1,8 +1,6 @@
 <script lang="ts">
   import { db } from './db';
-  import { GROUPS, toIsoDate, nextScheduledDate, candidateDatesForGroup, formatShortDate, type GroupId } from './groups';
-  import { ensureSessionForDate } from './sessionService';
-  import { applyVariantToSession } from './standardService';
+  import { GROUPS, candidateDatesForGroup, formatShortDate, type GroupId } from './groups';
   import { getCircuitsFor, deleteCircuitsFor } from './circuitService';
   import {
     TIPOLOGIE,
@@ -48,15 +46,14 @@
     dateEditorOpen = false;
   }
 
-  let notes = $state(variant.notes);
+  let esercizi = $state(variant.esercizi ?? '');
+  let notes = $state(variant.notes ?? '');
   let tipologie = $state<Tipologia[]>([...(variant.tipologie ?? [])]);
   let circuits = $state<Circuit[]>([]);
   let circuitFormOpen = $state(false);
   let editingCircuit = $state<Circuit | null>(null);
   let timerCircuit = $state<Circuit | null>(null);
   let savedFlash = $state(false);
-  let appliedDate = $state<string | null>(null);
-  const nextDate = nextScheduledDate(groupId);
 
   async function loadCircuits() {
     circuits = await getCircuitsFor('variant', variant.id!);
@@ -64,10 +61,14 @@
 
   loadCircuits();
 
-  async function saveText() {
-    await db.standardVariants.update(variant.id!, { notes });
+  async function saveEsercizi() {
+    await db.standardVariants.update(variant.id!, { esercizi });
     savedFlash = true;
     setTimeout(() => (savedFlash = false), 1200);
+  }
+
+  async function saveNotes() {
+    await db.standardVariants.update(variant.id!, { notes });
   }
 
   function toggleTipologia(t: Tipologia) {
@@ -112,14 +113,6 @@
     timerCircuit = null;
   }
 
-  async function applyToDate(targetDate: string) {
-    await saveText();
-    const targetSession = await ensureSessionForDate(targetDate, groupId);
-    await applyVariantToSession({ ...variant, notes, tipologie }, targetSession);
-    appliedDate = targetDate;
-    setTimeout(() => (appliedDate = null), 1800);
-  }
-
   async function deleteVariant() {
     if (!confirm(`Eliminare l'allenamento del ${formatShortDate(date)}?`)) return;
     await deleteCircuitsFor('variant', variant.id!);
@@ -139,8 +132,6 @@
   </div>
 
   <div class="content">
-    <NotesList bind:value={notes} onCommit={saveText} />
-
     <div class="field">
       <span>Tipologia</span>
       <div class="tipologia-toggle-row">
@@ -157,6 +148,13 @@
         {/each}
       </div>
     </div>
+
+    <label class="field">
+      <span>Note</span>
+      <textarea bind:value={notes} onblur={saveNotes} placeholder="Note libere sull'allenamento" rows="3"></textarea>
+    </label>
+
+    <NotesList bind:value={esercizi} onCommit={saveEsercizi} />
 
     <div class="field">
       <span>Circuiti ({circuits.length})</span>
@@ -184,18 +182,9 @@
     {#if savedFlash}
       <p class="flash">Salvato</p>
     {/if}
-
-    <div class="apply-row">
-      <button class="chip-apply" onclick={() => applyToDate(toIsoDate(new Date()))}>
-        {appliedDate === toIsoDate(new Date()) ? 'Applicata ✓' : '▶ Oggi'}
-      </button>
-      <button class="chip-apply" onclick={() => applyToDate(nextDate)}>
-        {appliedDate === nextDate ? 'Applicata ✓' : `▶ Prossima lezione (${formatShortDate(nextDate)})`}
-      </button>
-    </div>
-
-    <button class="btn-delete" onclick={deleteVariant}>Elimina allenamento</button>
   </div>
+
+  <button class="btn-delete" onclick={deleteVariant}>Elimina allenamento</button>
 </div>
 
 {#if circuitFormOpen}
@@ -305,6 +294,23 @@
     color: var(--text-muted);
   }
 
+  textarea {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--text);
+    resize: vertical;
+  }
+
+  textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+  }
+
   .flash {
     color: var(--success);
     font-size: 12px;
@@ -387,8 +393,8 @@
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 11px;
-    font-size: 13px;
+    padding: 8px 6px;
+    font-size: 11px;
     font-weight: 700;
     color: var(--text-muted);
   }
@@ -414,27 +420,13 @@
     font-size: 14px;
   }
 
-  .apply-row {
-    display: flex;
-    gap: 10px;
-  }
-
-  .chip-apply {
-    flex: 1;
-    background: var(--accent);
-    border: none;
-    border-radius: var(--radius-md);
-    padding: 15px 10px;
-    color: #fff;
-    font-weight: 700;
-    font-size: 14px;
-  }
-
   .btn-delete {
+    flex-shrink: 0;
     background: transparent;
-    border: 1px solid #f26d6d;
-    border-radius: var(--radius-md);
-    padding: 12px;
+    border: none;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    padding: 16px 20px;
     color: #f26d6d;
     font-weight: 700;
     font-size: 14px;

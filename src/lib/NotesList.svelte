@@ -1,23 +1,29 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { dndzone } from 'svelte-dnd-action';
 
   let {
     value = $bindable(''),
     onCommit,
   }: { value?: string; onCommit?: () => void } = $props();
 
-  let lines = $state<string[]>(value.length ? value.split('\n') : []);
+  type Line = { id: string; text: string };
+
+  function linesFromValue(v: string): Line[] {
+    if (!v.length) return Array.from({ length: 8 }, () => ({ id: crypto.randomUUID(), text: '' }));
+    return v.split('\n').map((text) => ({ id: crypto.randomUUID(), text }));
+  }
+
+  let lines = $state<Line[]>(linesFromValue(value));
   let inputEls: (HTMLInputElement | null)[] = [];
 
-  const QUICK_COUNTS = [6, 8, 10];
-
   function commit() {
-    value = lines.join('\n');
+    value = lines.map((l) => l.text).join('\n');
     onCommit?.();
   }
 
   async function addLine() {
-    lines.push('');
+    lines.push({ id: crypto.randomUUID(), text: '' });
     commit();
     await tick();
     inputEls[lines.length - 1]?.focus();
@@ -28,45 +34,42 @@
     commit();
   }
 
-  function moveLine(i: number, delta: number) {
-    const target = i + delta;
-    if (target < 0 || target >= lines.length) return;
-    [lines[i], lines[target]] = [lines[target], lines[i]];
-    commit();
+  function handleDndConsider(e: CustomEvent<{ items: Line[] }>) {
+    lines = e.detail.items;
   }
 
-  function padTo(n: number) {
-    if (lines.length >= n) return;
-    for (let i = lines.length; i < n; i++) lines.push('');
+  function handleDndFinalize(e: CustomEvent<{ items: Line[] }>) {
+    lines = e.detail.items;
     commit();
   }
 </script>
 
 <div class="notes-list">
   <div class="header-row">
-    <span class="label">Note</span>
-    <div class="quick-row">
-      {#each QUICK_COUNTS as n}
-        <button type="button" class="quick-btn" onclick={() => padTo(n)}>{n}</button>
-      {/each}
-    </div>
+    <span class="label">Esercizi</span>
   </div>
 
-  {#each lines as line, i (i)}
-    <div class="line-row">
-      <span class="badge">{i + 1}</span>
-      <input
-        type="text"
-        bind:value={lines[i]}
-        bind:this={inputEls[i]}
-        onblur={commit}
-        placeholder="Riga nota"
-      />
-      <button type="button" class="arrow-btn" onclick={() => moveLine(i, -1)} disabled={i === 0} aria-label="Sposta su">▲</button>
-      <button type="button" class="arrow-btn" onclick={() => moveLine(i, 1)} disabled={i === lines.length - 1} aria-label="Sposta giù">▼</button>
-      <button type="button" class="remove-btn" onclick={() => removeLine(i)} aria-label="Elimina riga">✕</button>
-    </div>
-  {/each}
+  <div
+    class="lines-zone"
+    use:dndzone={{ items: lines, flipDurationMs: 150 }}
+    onconsider={handleDndConsider}
+    onfinalize={handleDndFinalize}
+  >
+    {#each lines as line, i (line.id)}
+      <div class="line-row">
+        <span class="handle">≡</span>
+        <span class="badge">{i + 1}</span>
+        <input
+          type="text"
+          bind:value={line.text}
+          bind:this={inputEls[i]}
+          onblur={commit}
+          placeholder="Esercizio"
+        />
+        <button type="button" class="remove-btn" onclick={() => removeLine(i)} aria-label="Elimina riga">✕</button>
+      </div>
+    {/each}
+  </div>
 
   <button type="button" class="add-line-btn" onclick={addLine}>+ Aggiungi riga</button>
 </div>
@@ -87,25 +90,23 @@
     color: var(--text-muted);
   }
 
-  .quick-row {
+  .lines-zone {
     display: flex;
-    gap: 6px;
-  }
-
-  .quick-btn {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
-    font-size: 12px;
-    font-weight: 700;
-    padding: 5px 10px;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .line-row {
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .handle {
+    flex-shrink: 0;
+    color: var(--text-faint);
+    font-size: 18px;
+    cursor: grab;
   }
 
   .badge {
@@ -137,19 +138,6 @@
   input:focus {
     outline: 2px solid var(--accent);
     outline-offset: -1px;
-  }
-
-  .arrow-btn {
-    flex-shrink: 0;
-    background: transparent;
-    border: none;
-    color: var(--text-faint);
-    font-size: 10px;
-    padding: 4px 5px;
-  }
-
-  .arrow-btn:disabled {
-    opacity: 0.25;
   }
 
   .remove-btn {
