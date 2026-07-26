@@ -8,14 +8,11 @@
     type Exercise,
   } from './types';
   import {
-    TIMER_FORMATS,
-    TIMER_FORMAT_LABELS,
     DEFAULT_TABATA_PARAMS,
     DEFAULT_EMOM_PARAMS,
     DEFAULT_AMRAP_PARAMS,
     type Circuit,
     type CircuitOwnerType,
-    type TimerFormat,
     type TabataParams,
     type EmomParams,
     type AmrapParams,
@@ -38,7 +35,6 @@
   } = $props();
 
   let name = $state(circuit?.name ?? '');
-  let timerFormat = $state<TimerFormat>(circuit?.timerFormat ?? 'tabata');
   let tabata = $state<TabataParams>({ ...DEFAULT_TABATA_PARAMS, ...circuit?.tabata });
   let emom = $state<EmomParams>({ ...DEFAULT_EMOM_PARAMS, ...circuit?.emom });
   let amrap = $state<AmrapParams>({ ...DEFAULT_AMRAP_PARAMS, ...circuit?.amrap });
@@ -85,18 +81,8 @@
       error = 'Aggiungi almeno un esercizio.';
       return;
     }
-    if (timerFormat === 'tabata') {
-      if (tabata.workSeconds <= 0 || tabata.restSeconds < 0 || tabata.cycles <= 0) {
-        error = 'Controlla i parametri Tabata.';
-        return;
-      }
-    } else if (timerFormat === 'emom') {
-      if (emom.intervalSeconds <= 0 || emom.rounds <= 0) {
-        error = 'Controlla i parametri EMOM.';
-        return;
-      }
-    } else if (amrap.timeLimitSeconds <= 0) {
-      error = 'Controlla il tempo limite AMRAP.';
+    if (tabata.workSeconds <= 0 || tabata.restSeconds < 0 || tabata.cycles <= 0) {
+      error = 'Controlla i parametri Tabata.';
       return;
     }
 
@@ -106,7 +92,7 @@
       order: circuit?.order ?? order,
       name: trimmed,
       exerciseIds: selectedItems.map((item) => item.exerciseId),
-      timerFormat,
+      timerFormat: 'tabata',
       tabata: { ...tabata },
       emom: { ...emom },
       amrap: { ...amrap },
@@ -156,8 +142,10 @@
               style="border-left-color:{ex ? PATTERN_CATEGORY_COLORS[ex.category].bg : 'transparent'}"
             >
               <span class="handle">≡</span>
-              <span class="ex-name">{ex?.name ?? '—'}</span>
-              <button class="remove-btn" onclick={() => removeItem(item.id)} aria-label="Rimuovi">✕</button>
+              <div class="row-body">
+                <span class="ex-name">{ex?.name ?? '—'}</span>
+                <button class="remove-btn" onclick={() => removeItem(item.id)} aria-label="Rimuovi">✕</button>
+              </div>
             </div>
           {/each}
         </div>
@@ -166,80 +154,28 @@
     </div>
 
     <div class="timer-footer">
-      <div class="format-pills">
-        <button
-          class="pill"
-          class:active={timerFormat === 'tabata'}
-          onclick={() => (timerFormat = 'tabata')}
-        >
-          Tabata
-        </button>
-        <button
-          class="pill"
-          class:active={timerFormat === 'emom'}
-          onclick={() => (timerFormat = 'emom')}
-        >
-          Emom
-        </button>
-        <button
-          class="pill"
-          class:active={timerFormat === 'amrap'}
-          onclick={() => (timerFormat = 'amrap')}
-        >
-          Amrap
-        </button>
+      <div class="params-inline">
+        <label class="param">
+          <span>Prepara</span>
+          <input type="number" min="0" bind:value={tabata.prepareSeconds} />
+        </label>
+        <label class="param">
+          <span>Lavoro</span>
+          <input type="number" min="1" bind:value={tabata.workSeconds} />
+        </label>
+        <label class="param">
+          <span>Riposo</span>
+          <input type="number" min="0" bind:value={tabata.restSeconds} />
+        </label>
+        <label class="param">
+          <span>Cicli</span>
+          <input type="number" min="1" bind:value={tabata.cycles} />
+        </label>
+        <label class="param">
+          <span>Rip. cicli</span>
+          <input type="number" min="0" bind:value={tabata.restBetweenCyclesSeconds} />
+        </label>
       </div>
-
-      {#if timerFormat === 'tabata'}
-        <div class="params-inline">
-          <label class="param">
-            <span>Prepara</span>
-            <input type="number" min="0" bind:value={tabata.prepareSeconds} />
-          </label>
-          <label class="param">
-            <span>Lavoro</span>
-            <input type="number" min="1" bind:value={tabata.workSeconds} />
-          </label>
-          <label class="param">
-            <span>Riposo</span>
-            <input type="number" min="0" bind:value={tabata.restSeconds} />
-          </label>
-          <label class="param">
-            <span>Cicli</span>
-            <input type="number" min="1" bind:value={tabata.cycles} />
-          </label>
-          <label class="param">
-            <span>Rip. cicli</span>
-            <input type="number" min="0" bind:value={tabata.restBetweenCyclesSeconds} />
-          </label>
-        </div>
-      {:else if timerFormat === 'emom'}
-        <div class="params-inline">
-          <label class="param">
-            <span>Prepara</span>
-            <input type="number" min="0" bind:value={emom.prepareSeconds} />
-          </label>
-          <label class="param">
-            <span>Intervallo</span>
-            <input type="number" min="1" bind:value={emom.intervalSeconds} />
-          </label>
-          <label class="param">
-            <span>Round</span>
-            <input type="number" min="1" bind:value={emom.rounds} />
-          </label>
-        </div>
-      {:else}
-        <div class="params-inline">
-          <label class="param">
-            <span>Prepara</span>
-            <input type="number" min="0" bind:value={amrap.prepareSeconds} />
-          </label>
-          <label class="param">
-            <span>Tempo limite</span>
-            <input type="number" min="1" bind:value={amrap.timeLimitSeconds} />
-          </label>
-        </div>
-      {/if}
     </div>
 
     {#if error}
@@ -374,19 +310,31 @@
 
   .exercise-row {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    align-items: stretch;
     background: var(--bg-elevated);
     border-left: 4px solid transparent;
-    border-radius: var(--radius-sm);
-    padding: 10px 12px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
   }
 
   .handle {
+    display: flex;
+    align-items: center;
+    padding: 0 4px 0 10px;
     color: var(--text-faint);
     font-size: 18px;
     cursor: grab;
     flex-shrink: 0;
+  }
+
+  .row-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 16px 14px 6px;
   }
 
   .ex-name {
@@ -423,28 +371,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-  }
-
-  .format-pills {
-    display: flex;
-    gap: 8px;
-  }
-
-  .pill {
-    flex: 1;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
-    padding: 8px 10px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-muted);
-  }
-
-  .pill.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
   }
 
   .params-inline {

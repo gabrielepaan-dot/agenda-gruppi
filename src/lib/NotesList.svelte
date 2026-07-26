@@ -35,6 +35,19 @@
     commit();
   }
 
+  async function insertLineAfter(i: number) {
+    lines.splice(i + 1, 0, { id: crypto.randomUUID(), text: '' });
+    commit();
+    await tick();
+    inputEls[i + 1]?.focus();
+  }
+
+  function handleKeydown(e: KeyboardEvent, i: number) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    insertLineAfter(i);
+  }
+
   function handleDndConsider(e: CustomEvent<{ items: Line[] }>) {
     lines = e.detail.items;
   }
@@ -69,6 +82,7 @@
           bind:value={line.text}
           bind:this={inputEls[i]}
           onblur={commit}
+          onkeydown={(e) => handleKeydown(e, i)}
           placeholder="Esercizio"
         />
         <button type="button" class="remove-btn" onclick={() => removeLine(i)} aria-label="Elimina riga">✕</button>

@@ -10,8 +10,8 @@ export const GROUPS: Record<GroupId, Group> = {
   corso_base: { id: 'corso_base', name: 'Corso base', color: '#4CAF7D' },
   intermedi_corda: { id: 'intermedi_corda', name: 'Intermedi corda', color: '#3B6FA0' },
   pro_mer: { id: 'pro_mer', name: 'Pro', color: '#9B7EDE' },
-  pro_gio: { id: 'pro_gio', name: 'Pro', color: '#7E5EC4' },
   corso_intermedio: { id: 'corso_intermedio', name: 'Corso intermedio', color: '#F2A93B' },
+  pro_gio: { id: 'pro_gio', name: 'Pro', color: '#7E5EC4' },
 };
 
 export interface ScheduleSlot {
