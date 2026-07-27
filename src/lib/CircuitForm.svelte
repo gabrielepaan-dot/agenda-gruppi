@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
+  import { dndzone } from 'svelte-dnd-action';
   import { db } from './db';
   import {
     PATTERN_CATEGORIES,
@@ -83,7 +83,24 @@
     selectedItems = selectedItems.filter((item) => item.id !== id);
   }
 
+  // Snapshotted the moment a real drag begins (first `consider` event, tagged
+  // DRAG_STARTED by the library) so a drag that never reaches `finalize` — an
+  // interrupted touch gesture, see below — still has something authoritative
+  // to restore from.
+  let preDragSnapshot: SelectedItem[] | null = null;
+  let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearRecoveryTimer() {
+    if (recoveryTimer) {
+      clearTimeout(recoveryTimer);
+      recoveryTimer = null;
+    }
+  }
+
   function handleConsider(e: CustomEvent<{ items: SelectedItem[] }>) {
+    if (preDragSnapshot === null) {
+      preDragSnapshot = selectedItems.map((item) => ({ ...item }));
+    }
     selectedItems = e.detail.items;
   }
 
@@ -92,10 +109,52 @@
     // Guard against svelte-dnd-action ever dropping a row (e.g. a release outside a
     // valid drop target on flaky touch input): reordering must never delete anything —
     // the ✕ button is the only path that's allowed to remove a row.
+    const before = preDragSnapshot ?? selectedItems;
     const finalizedIds = new Set(finalized.map((item) => item.id));
-    const lost = selectedItems.filter((item) => !finalizedIds.has(item.id));
+    const lost = before.filter((item) => !finalizedIds.has(item.id));
     selectedItems = lost.length > 0 ? [...finalized, ...lost] : finalized;
+    preDragSnapshot = null;
+    clearRecoveryTimer();
   }
+
+  // Safety net for gestures that end without ever firing `finalize` at all —
+  // svelte-dnd-action only listens for mouseup/touchend, not touchcancel, so an
+  // Android-cancelled gesture (incoming call, edge-swipe nav, notification
+  // shade, app backgrounded mid-drag) can leave a drag permanently unfinished.
+  // Force it closed two ways: (1) replay the events the library itself listens
+  // for, so its own finalize runs normally; (2) if that still doesn't land
+  // within one frame's worth of slack, fall back to restoring the pre-drag
+  // order directly from our own snapshot, guaranteeing no row is ever lost.
+  function forceEndStuckDrag() {
+    window.dispatchEvent(new Event('touchend', { bubbles: true, cancelable: true }));
+    window.dispatchEvent(new Event('mouseup', { bubbles: true, cancelable: true }));
+    clearRecoveryTimer();
+    recoveryTimer = setTimeout(() => {
+      if (preDragSnapshot) {
+        selectedItems = preDragSnapshot;
+        preDragSnapshot = null;
+      }
+      recoveryTimer = null;
+    }, 300);
+  }
+
+  function handleVisibilityChange() {
+    if (document.hidden) forceEndStuckDrag();
+  }
+
+  $effect(() => {
+    window.addEventListener('touchcancel', forceEndStuckDrag, { capture: true });
+    window.addEventListener('pointercancel', forceEndStuckDrag, { capture: true });
+    window.addEventListener('blur', forceEndStuckDrag);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('touchcancel', forceEndStuckDrag, { capture: true });
+      window.removeEventListener('pointercancel', forceEndStuckDrag, { capture: true });
+      window.removeEventListener('blur', forceEndStuckDrag);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearRecoveryTimer();
+    };
+  });
 
   async function save() {
     const trimmed = name.trim();
@@ -154,7 +213,7 @@
       {#if selectedItems.length > 0}
         <div
           class="exercise-list"
-          use:dragHandleZone={{ items: selectedItems, flipDurationMs: 150 }}
+          use:dndzone={{ items: selectedItems, flipDurationMs: 150 }}
           onconsider={handleConsider}
           onfinalize={handleFinalize}
         >
@@ -164,7 +223,7 @@
               class="exercise-row"
               style="border-left-color:{ex ? PATTERN_CATEGORY_COLORS[ex.category].bg : item.freeText ? 'var(--accent)' : 'transparent'}"
             >
-              <span class="handle" use:dragHandle>≡</span>
+              <span class="handle">≡</span>
               <div class="row-body">
                 <span class="ex-name">{item.freeText || ex?.name || '—'}</span>
                 <button class="remove-btn" onclick={() => removeItem(item.id)} aria-label="Rimuovi">✕</button>
@@ -344,7 +403,10 @@
     border-left: 4px solid transparent;
     border-radius: var(--radius-lg);
     overflow: hidden;
+    cursor: grab;
+    touch-action: none;
     user-select: none;
+    -webkit-user-select: none;
   }
 
   .handle {
@@ -353,11 +415,7 @@
     padding: 0 4px 0 10px;
     color: var(--text-faint);
     font-size: 18px;
-    cursor: grab;
     flex-shrink: 0;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
   }
 
   .row-body {
@@ -384,6 +442,8 @@
     font-size: 14px;
     padding: 4px 6px;
     flex-shrink: 0;
+    cursor: pointer;
+    touch-action: auto;
   }
 
   .add-exercise-btn {
