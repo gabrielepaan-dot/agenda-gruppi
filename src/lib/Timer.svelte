@@ -120,7 +120,7 @@
   });
 
   const circuitExerciseList = $derived.by(() =>
-    (circuit?.exerciseIds ?? []).map((id) => exercisesById.get(id)?.name ?? '—'),
+    (circuit?.exerciseIds ?? []).map((id, i) => circuit?.freeText?.[i] || exercisesById.get(id)?.name || '—'),
   );
 
   function mmss(totalSeconds: number): string {
@@ -397,6 +397,7 @@
     emom,
     amrap,
     exerciseIds: circuit?.exerciseIds ?? [],
+    freeText: circuit?.freeText ?? [],
   });
 
   function handleExit() {

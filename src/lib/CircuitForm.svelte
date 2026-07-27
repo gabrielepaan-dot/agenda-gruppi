@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { dndzone } from 'svelte-dnd-action';
+  import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
   import { db } from './db';
   import {
     PATTERN_CATEGORIES,
@@ -40,10 +40,14 @@
   let amrap = $state<AmrapParams>({ ...DEFAULT_AMRAP_PARAMS, ...circuit?.amrap });
   let error = $state('');
   let pickerOpen = $state(false);
+  let freeTextInput = $state('');
 
-  type SelectedItem = { id: string; exerciseId: number };
+  type SelectedItem = { id: string; exerciseId: number; freeText?: string };
   let selectedItems = $state<SelectedItem[]>(
-    (circuit?.exerciseIds ?? []).map((exerciseId) => ({ id: crypto.randomUUID(), exerciseId })),
+    (circuit?.exerciseIds ?? []).map((exerciseId, i) => {
+      const freeText = circuit?.freeText?.[i];
+      return freeText ? { id: crypto.randomUUID(), exerciseId, freeText } : { id: crypto.randomUUID(), exerciseId };
+    }),
   );
 
   let allExercises = $state<Exercise[]>([]);
@@ -67,12 +71,30 @@
     selectedItems = [...selectedItems, { id: crypto.randomUUID(), exerciseId: ex.id }];
   }
 
+  function addFreeText() {
+    const trimmed = freeTextInput.trim();
+    if (!trimmed) return;
+    selectedItems = [...selectedItems, { id: crypto.randomUUID(), exerciseId: 0, freeText: trimmed }];
+    freeTextInput = '';
+    pickerOpen = false;
+  }
+
   function removeItem(id: string) {
     selectedItems = selectedItems.filter((item) => item.id !== id);
   }
 
-  function handleDnd(e: CustomEvent<{ items: SelectedItem[] }>) {
+  function handleConsider(e: CustomEvent<{ items: SelectedItem[] }>) {
     selectedItems = e.detail.items;
+  }
+
+  function handleFinalize(e: CustomEvent<{ items: SelectedItem[] }>) {
+    const finalized = e.detail.items;
+    // Guard against svelte-dnd-action ever dropping a row (e.g. a release outside a
+    // valid drop target on flaky touch input): reordering must never delete anything —
+    // the ✕ button is the only path that's allowed to remove a row.
+    const finalizedIds = new Set(finalized.map((item) => item.id));
+    const lost = selectedItems.filter((item) => !finalizedIds.has(item.id));
+    selectedItems = lost.length > 0 ? [...finalized, ...lost] : finalized;
   }
 
   async function save() {
@@ -92,6 +114,7 @@
       order: circuit?.order ?? order,
       name: trimmed,
       exerciseIds: selectedItems.map((item) => item.exerciseId),
+      freeText: selectedItems.map((item) => item.freeText ?? ''),
       timerFormat: 'tabata',
       tabata: { ...tabata },
       emom: { ...emom },
@@ -131,19 +154,19 @@
       {#if selectedItems.length > 0}
         <div
           class="exercise-list"
-          use:dndzone={{ items: selectedItems, flipDurationMs: 150 }}
-          onconsider={handleDnd}
-          onfinalize={handleDnd}
+          use:dragHandleZone={{ items: selectedItems, flipDurationMs: 150 }}
+          onconsider={handleConsider}
+          onfinalize={handleFinalize}
         >
           {#each selectedItems as item (item.id)}
-            {@const ex = exercisesById.get(item.exerciseId)}
+            {@const ex = item.freeText ? null : exercisesById.get(item.exerciseId)}
             <div
               class="exercise-row"
-              style="border-left-color:{ex ? PATTERN_CATEGORY_COLORS[ex.category].bg : 'transparent'}"
+              style="border-left-color:{ex ? PATTERN_CATEGORY_COLORS[ex.category].bg : item.freeText ? 'var(--accent)' : 'transparent'}"
             >
-              <span class="handle">≡</span>
+              <span class="handle" use:dragHandle>≡</span>
               <div class="row-body">
-                <span class="ex-name">{ex?.name ?? '—'}</span>
+                <span class="ex-name">{item.freeText || ex?.name || '—'}</span>
                 <button class="remove-btn" onclick={() => removeItem(item.id)} aria-label="Rimuovi">✕</button>
               </div>
             </div>
@@ -200,28 +223,34 @@
     >
       <div class="handle-bar"></div>
       <h2>Aggiungi esercizio</h2>
-      <div class="picker-list">
-        {#each PATTERN_CATEGORIES as cat}
-          {@const list = groupedForPicker.get(cat) ?? []}
-          {#if list.length > 0}
-            <div class="picker-section-label">
-              <span class="dot" style="background:{PATTERN_CATEGORY_COLORS[cat].bg}"></span>
-              {PATTERN_CATEGORY_LABELS[cat]}
-            </div>
-            {#each list as ex (ex.id)}
-              <button
-                class="picker-row"
-                style="border-left-color:{PATTERN_CATEGORY_COLORS[cat].bg}"
-                onclick={() => addExercise(ex)}
-              >
-                {ex.name}
-              </button>
-            {/each}
+      <div class="picker-scroll">
+        <div class="free-text-row">
+          <input type="text" bind:value={freeTextInput} placeholder="Testo libero (es. Stretching 5')" />
+          <button class="btn-add-freetext" onclick={addFreeText} disabled={!freeTextInput.trim()}>Aggiungi</button>
+        </div>
+        <div class="picker-list">
+          {#each PATTERN_CATEGORIES as cat}
+            {@const list = groupedForPicker.get(cat) ?? []}
+            {#if list.length > 0}
+              <div class="picker-section-label">
+                <span class="dot" style="background:{PATTERN_CATEGORY_COLORS[cat].bg}"></span>
+                {PATTERN_CATEGORY_LABELS[cat]}
+              </div>
+              {#each list as ex (ex.id)}
+                <button
+                  class="picker-row"
+                  style="border-left-color:{PATTERN_CATEGORY_COLORS[cat].bg}"
+                  onclick={() => addExercise(ex)}
+                >
+                  {ex.name}
+                </button>
+              {/each}
+            {/if}
+          {/each}
+          {#if allExercises.length === 0}
+            <p class="empty">Nessun esercizio nell'eserciziario. Aggiungine prima uno.</p>
           {/if}
-        {/each}
-        {#if allExercises.length === 0}
-          <p class="empty">Nessun esercizio nell'eserciziario. Aggiungine prima uno.</p>
-        {/if}
+        </div>
       </div>
       <button class="btn-cancel" onclick={() => (pickerOpen = false)}>Chiudi</button>
     </div>
@@ -315,6 +344,7 @@
     border-left: 4px solid transparent;
     border-radius: var(--radius-lg);
     overflow: hidden;
+    user-select: none;
   }
 
   .handle {
@@ -325,6 +355,9 @@
     font-size: 18px;
     cursor: grab;
     flex-shrink: 0;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .row-body {
@@ -424,10 +457,9 @@
   .sheet {
     width: 100%;
     max-height: 85vh;
-    overflow-y: auto;
     background: var(--bg-elevated);
     border-radius: 20px 20px 0 0;
-    padding: 12px 20px 24px;
+    padding: 12px 20px 0;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -439,11 +471,47 @@
     border-radius: 2px;
     background: var(--border);
     margin: 0 auto 4px;
+    flex-shrink: 0;
   }
 
   .sheet h2 {
     font-size: 17px;
     font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  .picker-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 16px;
+  }
+
+  .free-text-row {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .free-text-row input {
+    flex: 1;
+  }
+
+  .btn-add-freetext {
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0 16px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .btn-add-freetext:disabled {
+    opacity: 0.4;
   }
 
   .picker-list {
@@ -489,12 +557,16 @@
   }
 
   .btn-cancel {
-    margin-top: 10px;
+    flex-shrink: 0;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     padding: 13px;
     color: var(--text-muted);
     font-weight: 700;
+    margin: 0 -20px;
+    border-radius: 0;
+    border-width: 1px 0 0;
+    padding: 13px 20px calc(13px + env(safe-area-inset-bottom, 0px));
   }
 </style>

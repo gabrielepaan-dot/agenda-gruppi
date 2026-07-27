@@ -1,7 +1,6 @@
 <script lang="ts">
   import { db } from './db';
-  import { GROUPS, nextWeekIsoDate, candidateDatesForGroup, formatShortDate } from './groups';
-  import { duplicateSessionTo } from './sessionService';
+  import { GROUPS, candidateDatesForGroup, formatShortDate } from './groups';
   import { getCircuitsFor, deleteCircuitsFor } from './circuitService';
   import { saveSessionAsAllenamento } from './standardService';
   import {
@@ -31,7 +30,6 @@
   let editingCircuit = $state<Circuit | null>(null);
   let timerCircuit = $state<Circuit | null>(null);
   let savedFlash = $state(false);
-  let duplicated = $state(false);
 
   let saveAllenamentoOpen = $state(false);
   let allenamentoDate = $state(session.date);
@@ -97,15 +95,6 @@
 
   function closeTimer() {
     timerCircuit = null;
-  }
-
-  async function duplicateForNextWeek() {
-    await saveEsercizi();
-    await saveNotes();
-    const newDate = nextWeekIsoDate(session.date);
-    await duplicateSessionTo({ ...session, esercizi, notes }, newDate);
-    duplicated = true;
-    setTimeout(() => (duplicated = false), 1800);
   }
 
   async function deleteSession() {
@@ -191,15 +180,12 @@
     {#if savedFlash}
       <p class="flash">Salvato</p>
     {/if}
+  </div>
 
-    <button class="btn-duplicate" onclick={duplicateForNextWeek}>
-      {duplicated ? 'Duplicata ✓' : `↻ Duplica per ${nextWeekIsoDate(session.date)}`}
-    </button>
-
-    <button class="btn-duplicate" onclick={openSaveAllenamento}>
+  <div class="action-footer">
+    <button class="btn-save-standard" onclick={openSaveAllenamento}>
       {allenamentoSaved ? 'Salvato come allenamento ✓' : '★ Salva come allenamento standard'}
     </button>
-
     <button class="btn-delete" onclick={deleteSession}>Elimina sessione</button>
   </div>
 </div>
@@ -434,7 +420,16 @@
     font-size: 14px;
   }
 
-  .btn-duplicate {
+  .action-footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+  }
+
+  .btn-save-standard {
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);

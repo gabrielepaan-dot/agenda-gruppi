@@ -44,13 +44,6 @@ export function toIsoDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-export function nextWeekIsoDate(isoDate: string): string {
-  const [y, m, d] = isoDate.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  date.setDate(date.getDate() + 7);
-  return toIsoDate(date);
-}
-
 export function nextScheduledDate(groupId: GroupId, fromDate: Date = new Date()): string {
   const weekdays = WEEKLY_SCHEDULE.filter((s) => s.groupId === groupId).map((s) => s.weekday);
   for (let i = 1; i <= 7; i++) {

@@ -7,6 +7,8 @@ export interface TimerPhase {
   kind: PhaseKind;
   durationSeconds: number;
   exerciseId?: number;
+  /** Free-hand exercise text for this round, when the circuit slot has no real exerciseId. */
+  exerciseName?: string;
   round?: number;
   cycle?: number;
 }
@@ -17,15 +19,15 @@ export interface AnnounceSettings {
 }
 
 const DEFAULT_PREPARE_SECONDS = 3;
-const CUE_KINDS = new Set<PhaseKind>(['rest', 'rest_cycle', 'interval', 'amrap']);
+const CUE_KINDS = new Set<PhaseKind>(['work', 'rest', 'rest_cycle', 'interval', 'amrap']);
 
-export function buildTimeline(circuit: Pick<Circuit, 'timerFormat' | 'tabata' | 'emom' | 'amrap' | 'exerciseIds'>): TimerPhase[] {
-  if (circuit.timerFormat === 'tabata') return buildTabataTimeline(circuit.exerciseIds, circuit.tabata);
+export function buildTimeline(circuit: Pick<Circuit, 'timerFormat' | 'tabata' | 'emom' | 'amrap' | 'exerciseIds' | 'freeText'>): TimerPhase[] {
+  if (circuit.timerFormat === 'tabata') return buildTabataTimeline(circuit.exerciseIds, circuit.freeText ?? [], circuit.tabata);
   if (circuit.timerFormat === 'emom') return buildEmomTimeline(circuit.emom);
   return buildAmrapTimeline(circuit.amrap);
 }
 
-function buildTabataTimeline(exerciseIds: number[], params: Circuit['tabata']): TimerPhase[] {
+function buildTabataTimeline(exerciseIds: number[], freeText: string[], params: Circuit['tabata']): TimerPhase[] {
   const phases: TimerPhase[] = [{ kind: 'prepare', durationSeconds: params.prepareSeconds ?? DEFAULT_PREPARE_SECONDS }];
   const n = exerciseIds.length > 0 ? exerciseIds.length : Math.max(1, params.genericRounds ?? 8);
   for (let cycle = 0; cycle < params.cycles; cycle++) {
@@ -34,6 +36,7 @@ function buildTabataTimeline(exerciseIds: number[], params: Circuit['tabata']): 
         kind: 'work',
         durationSeconds: params.workSeconds,
         exerciseId: exerciseIds[round],
+        exerciseName: freeText[round] || undefined,
         round: round + 1,
         cycle: cycle + 1,
       });
@@ -146,8 +149,12 @@ export class TimerEngine {
     this.cued.clear();
     if (phase.kind === 'prepare') {
       if (this.announce.frasi) this.audio.speakPhrase('prepara');
-    } else if ((phase.kind === 'rest' || phase.kind === 'rest_cycle') && this.announce.frasi) {
+    } else if (phase.kind === 'rest' && this.announce.frasi) {
       this.audio.speakPhrase('riposa');
+    } else if (phase.kind === 'rest_cycle' && this.announce.frasi) {
+      // No fixed phrase recording can include the (variable) duration, so this always
+      // goes through computer TTS rather than a per-profile recording like plain 'riposa'.
+      this.audio.speakText(`Riposo ${phase.durationSeconds} secondi`);
     } else if ((phase.kind === 'work' || phase.kind === 'interval') && this.phases[index - 1]?.kind === 'prepare') {
       // The countdown that precedes work/interval never gets a chance to preview what's
       // coming next (unlike rest/rest_cycle/interval/amrap, which cue "lavora" a few seconds
@@ -211,7 +218,10 @@ export class TimerEngine {
         this.audio.speakPhrase('lavora');
         said = true;
       }
-      if (this.announce.esercizio && next.exerciseId) {
+      if (this.announce.esercizio && next.exerciseName) {
+        this.audio.speakText(next.exerciseName);
+        said = true;
+      } else if (this.announce.esercizio && next.exerciseId) {
         this.audio.speakExercise(next.exerciseId);
         said = true;
       }

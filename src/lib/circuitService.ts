@@ -25,6 +25,7 @@ export async function copyCircuits(
       order: c.order,
       name: c.name,
       exerciseIds: [...c.exerciseIds],
+      freeText: c.freeText ? [...c.freeText] : undefined,
       timerFormat: c.timerFormat,
       tabata: { ...c.tabata },
       emom: { ...c.emom },

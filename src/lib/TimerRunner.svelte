@@ -12,7 +12,7 @@
     exerciseNames,
     onExit,
   }: {
-    config: Pick<Circuit, 'timerFormat' | 'tabata' | 'emom' | 'amrap' | 'exerciseIds'>;
+    config: Pick<Circuit, 'timerFormat' | 'tabata' | 'emom' | 'amrap' | 'exerciseIds' | 'freeText'>;
     announce: AnnounceSettings;
     voiceSelection: VoiceSelection;
     exerciseNames: string[];

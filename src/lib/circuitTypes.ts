@@ -79,6 +79,8 @@ export interface Circuit {
   order: number;
   name: string;
   exerciseIds: number[];
+  /** Parallel to exerciseIds: free-hand text for a slot (exerciseId is a 0 placeholder there), '' for a real exercise slot. */
+  freeText?: string[];
   timerFormat: TimerFormat;
   tabata: TabataParams;
   emom: EmomParams;
