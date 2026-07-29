@@ -15,11 +15,15 @@ export type VoiceSelection =
   | { mode: 'computer'; computerVoiceURI: string }
   | { mode: 'profile'; profileId: number; computerVoiceURI: string };
 
+const WORK_START_SAMPLE_URL = `${import.meta.env.BASE_URL}sounds/work-start-whistle.wav`;
+
 export class TimerAudio {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private computerVoiceURI = '';
   private mode: VoiceMode = { kind: 'computer' };
+  private workStartBuffer: AudioBuffer | null = null;
+  private workStartBufferLoading: Promise<AudioBuffer | null> | null = null;
 
   setComputerVoice(voiceURI: string) {
     this.computerVoiceURI = voiceURI;
@@ -84,10 +88,37 @@ export class TimerAudio {
     this.beep(remaining <= 1);
   }
 
-  /** Bright two-note chime marking the exact instant a work phase starts. */
-  playWorkStartBell() {
-    this.tone(1568, 0.55, 0.95, 'triangle');
-    this.tone(2093, 0.5, 0.6, 'triangle', 0.04);
+  /** Loads (once) and decodes the referee-whistle sample used to mark a work phase
+   * start. Routed through the same buffer/decode step as playback so the file is
+   * fetched only once per app session. */
+  private loadWorkStartBuffer(): Promise<AudioBuffer | null> {
+    if (this.workStartBuffer) return Promise.resolve(this.workStartBuffer);
+    if (!this.workStartBufferLoading) {
+      const ctx = this.getCtx();
+      this.workStartBufferLoading = fetch(WORK_START_SAMPLE_URL)
+        .then((res) => res.arrayBuffer())
+        .then((data) => ctx.decodeAudioData(data))
+        .then((buffer) => {
+          this.workStartBuffer = buffer;
+          return buffer;
+        })
+        .catch(() => null);
+    }
+    return this.workStartBufferLoading;
+  }
+
+  /** Referee-whistle sample marking the exact instant a work phase starts — real
+   * recording rather than a synthesized tone, played through the same master
+   * gain/compressor chain as the synthetic beeps so it comes out at the same
+   * maximized volume. Played in full (only its leading near-silence was trimmed). */
+  async playWorkStartBell() {
+    const buffer = await this.loadWorkStartBuffer();
+    if (!buffer) return;
+    const ctx = this.getCtx();
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.master!);
+    source.start();
   }
 
   speakText(text: string) {
