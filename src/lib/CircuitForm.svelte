@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { dndzone } from 'svelte-dnd-action';
+  import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
   import { db } from './db';
   import {
     PATTERN_CATEGORIES,
@@ -213,7 +213,7 @@
       {#if selectedItems.length > 0}
         <div
           class="exercise-list"
-          use:dndzone={{ items: selectedItems, flipDurationMs: 150 }}
+          use:dragHandleZone={{ items: selectedItems, flipDurationMs: 150, type: 'circuit-exercises' }}
           onconsider={handleConsider}
           onfinalize={handleFinalize}
         >
@@ -223,11 +223,11 @@
               class="exercise-row"
               style="border-left-color:{ex ? PATTERN_CATEGORY_COLORS[ex.category].bg : item.freeText ? 'var(--accent)' : 'transparent'}"
             >
-              <span class="handle">≡</span>
               <div class="row-body">
                 <span class="ex-name">{item.freeText || ex?.name || '—'}</span>
                 <button class="remove-btn" onclick={() => removeItem(item.id)} aria-label="Rimuovi">✕</button>
               </div>
+              <span class="drag-handle" use:dragHandle aria-label="Trascina per riordinare">⚓</span>
             </div>
           {/each}
         </div>
@@ -400,22 +400,11 @@
     display: flex;
     align-items: stretch;
     background: var(--bg-elevated);
+    border: 2px solid transparent;
     border-left: 4px solid transparent;
     border-radius: var(--radius-lg);
     overflow: hidden;
-    cursor: grab;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-
-  .handle {
-    display: flex;
-    align-items: center;
-    padding: 0 4px 0 10px;
-    color: var(--text-faint);
-    font-size: 18px;
-    flex-shrink: 0;
+    transition: box-shadow 0.15s, border-color 0.15s;
   }
 
   .row-body {
@@ -425,7 +414,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 14px 16px 14px 6px;
+    padding: 14px 16px;
   }
 
   .ex-name {
@@ -444,6 +433,31 @@
     flex-shrink: 0;
     cursor: pointer;
     touch-action: auto;
+  }
+
+  .drag-handle {
+    flex-shrink: 0;
+    width: 52px;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    border-left: 1px solid var(--border);
+    color: var(--text-faint);
+    font-size: 20px;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* The floating clone svelte-dnd-action follows the pointer while a drag is active.
+     !important: svelte-dnd-action snapshots the original element's computed border into
+     this clone's own inline style, which otherwise beats any stylesheet rule. */
+  :global(#dnd-action-dragged-el.exercise-row) {
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
+    border-color: var(--accent) !important;
   }
 
   .add-exercise-btn {

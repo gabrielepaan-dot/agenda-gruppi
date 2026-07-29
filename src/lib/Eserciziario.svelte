@@ -106,13 +106,12 @@
         </div>
         <div
           class="category-zone"
-          use:dragHandleZone={{ items: list, flipDurationMs: 150 }}
+          use:dragHandleZone={{ items: list, flipDurationMs: 150, type: `exercise-cat-${cat}` }}
           onconsider={(e) => handleConsider(cat, e)}
           onfinalize={(e) => handleFinalize(cat, e)}
         >
           {#each list as ex (ex.id)}
             <div class="card" style="border-left-color:{PATTERN_CATEGORY_COLORS[cat].bg}">
-              <span class="drag-handle" use:dragHandle>≡</span>
               <button class="card-body" onclick={() => openEdit(ex)}>
                 <div class="left">
                   <div class="name">{ex.name}</div>
@@ -124,6 +123,7 @@
                   <span class="quality-pill">{QUALITY_LABELS[ex.quality]}</span>
                 {/if}
               </button>
+              <span class="drag-handle" use:dragHandle aria-label="Trascina per riordinare">⚓</span>
             </div>
           {/each}
         </div>
@@ -223,19 +223,35 @@
     display: flex;
     align-items: stretch;
     background: var(--bg-elevated);
+    border: 2px solid transparent;
     border-left: 4px solid transparent;
     border-radius: var(--radius-lg);
     overflow: hidden;
+    transition: box-shadow 0.15s, border-color 0.15s;
   }
 
   .drag-handle {
     flex-shrink: 0;
+    width: 52px;
+    align-self: stretch;
     display: flex;
     align-items: center;
-    padding: 0 4px 0 10px;
+    justify-content: center;
+    background: var(--bg);
+    border-left: 1px solid var(--border);
     color: var(--text-faint);
     font-size: 20px;
     cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* !important: svelte-dnd-action snapshots the original element's computed border
+     into this clone's own inline style, which otherwise beats any stylesheet rule. */
+  :global(#dnd-action-dragged-el.card) {
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
+    border-color: var(--accent) !important;
   }
 
   .card-body {
@@ -243,7 +259,7 @@
     min-width: 0;
     background: transparent;
     border: none;
-    padding: 14px 16px 14px 6px;
+    padding: 14px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;

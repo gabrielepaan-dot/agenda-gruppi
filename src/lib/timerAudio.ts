@@ -17,6 +17,7 @@ export type VoiceSelection =
 
 export class TimerAudio {
   private ctx: AudioContext | null = null;
+  private master: GainNode | null = null;
   private computerVoiceURI = '';
   private mode: VoiceMode = { kind: 'computer' };
 
@@ -32,6 +33,20 @@ export class TimerAudio {
     if (!this.ctx) {
       const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new Ctor();
+      // A compressor/limiter ahead of the destination lets every tone run its gain
+      // close to full scale without risking clipping — this is what makes the beeps
+      // audible over gym noise at max phone volume (small phone speakers otherwise
+      // reproduce a soft, low-gain sine tone very quietly compared to a limited signal).
+      const compressor = this.ctx.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
+      compressor.knee.setValueAtTime(6, this.ctx.currentTime);
+      compressor.ratio.setValueAtTime(12, this.ctx.currentTime);
+      compressor.attack.setValueAtTime(0.002, this.ctx.currentTime);
+      compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 1;
+      this.master.connect(compressor);
+      compressor.connect(this.ctx.destination);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
     return this.ctx;
@@ -41,25 +56,38 @@ export class TimerAudio {
     this.getCtx();
   }
 
-  beep(long = false) {
+  private tone(freq: number, duration: number, peak: number, type: OscillatorType, startAt = 0) {
     const ctx = this.getCtx();
+    const now = ctx.currentTime + startAt;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    const duration = long ? 0.4 : 0.15;
-    osc.type = 'sine';
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(peak, now + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
     osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + duration + 0.01);
+    gain.connect(this.master!);
+    osc.start(now);
+    osc.stop(now + duration + 0.02);
+  }
+
+  /** Short/long beep, e.g. for the 3-2-1 countdown. Square wave: louder-feeling on
+   * small phone speakers than a pure sine at the same peak gain, thanks to its
+   * harmonic content. */
+  beep(long = false) {
+    this.tone(1318.5, long ? 0.45 : 0.16, 0.9, 'square');
   }
 
   /** Final 3-2-1 countdown: short beep, short beep, long beep — never spoken. */
   playCountdownBeep(remaining: number) {
     this.beep(remaining <= 1);
+  }
+
+  /** Bright two-note chime marking the exact instant a work phase starts. */
+  playWorkStartBell() {
+    this.tone(1568, 0.55, 0.95, 'triangle');
+    this.tone(2093, 0.5, 0.6, 'triangle', 0.04);
   }
 
   speakText(text: string) {

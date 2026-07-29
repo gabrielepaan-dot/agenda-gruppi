@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { dndzone } from 'svelte-dnd-action';
+  import { dragHandleZone, dragHandle } from 'svelte-dnd-action';
   import { db } from './db';
   import { GROUPS, candidateDatesForGroup, formatShortDate, type GroupId } from './groups';
   import { getCircuitsFor, deleteCircuitsFor } from './circuitService';
@@ -172,15 +172,15 @@
 
     <div
       class="sections-zone"
-      use:dndzone={{ items: sections, flipDurationMs: 150 }}
+      use:dragHandleZone={{ items: sections, flipDurationMs: 150, type: 'allenamento-sections' }}
       onconsider={handleSectionDndConsider}
       onfinalize={handleSectionDndFinalize}
     >
       {#each sections as section (section.id)}
         <div class="section-card">
           <div class="section-header">
-            <span class="section-handle">≡</span>
             <span class="section-label">{sectionLabel(section.id)}</span>
+            <span class="drag-handle" use:dragHandle aria-label="Trascina per riordinare">⚓</span>
           </div>
 
           {#if section.id === 'note'}
@@ -350,33 +350,53 @@
 
   .section-card {
     background: var(--bg-elevated);
+    border: 2px solid transparent;
     border-radius: 20px;
     padding: 18px;
     display: flex;
     flex-direction: column;
     gap: 14px;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+
+  /* !important: svelte-dnd-action snapshots the original element's computed border
+     into this clone's own inline style, which otherwise beats any stylesheet rule. */
+  :global(#dnd-action-dragged-el.section-card) {
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
+    border-color: var(--accent) !important;
   }
 
   .section-header {
     display: flex;
-    align-items: center;
+    align-items: stretch;
+    justify-content: space-between;
     gap: 10px;
-    cursor: grab;
-  }
-
-  .section-handle {
-    flex-shrink: 0;
-    color: var(--text-faint);
-    font-size: 20px;
-    line-height: 1;
+    margin: -18px -18px 0;
   }
 
   .section-label {
+    align-self: center;
+    padding: 18px 0 18px 18px;
     font-size: 13px;
     font-weight: 700;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.02em;
+  }
+
+  .drag-handle {
+    flex-shrink: 0;
+    width: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+    font-size: 20px;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    border-radius: 0 20px 0 0;
   }
 
   textarea {

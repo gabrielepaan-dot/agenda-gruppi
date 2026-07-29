@@ -149,13 +149,19 @@ export class TimerEngine {
     this.cued.clear();
     if (phase.kind === 'prepare') {
       if (this.announce.frasi) this.audio.speakPhrase('prepara');
+    } else if (phase.kind === 'work') {
+      // Marks the exact instant work starts (as opposed to the 3-2-1 countdown beep
+      // during the tail of the preceding rest, which fires ~1-3s early) — always plays,
+      // independent of voice settings, same as the countdown beep.
+      this.audio.playWorkStartBell();
+      if (this.phases[index - 1]?.kind === 'prepare') this.speakUpcoming(phase);
     } else if (phase.kind === 'rest' && this.announce.frasi) {
       this.audio.speakPhrase('riposa');
     } else if (phase.kind === 'rest_cycle' && this.announce.frasi) {
       // No fixed phrase recording can include the (variable) duration, so this always
       // goes through computer TTS rather than a per-profile recording like plain 'riposa'.
       this.audio.speakText(`Riposo ${phase.durationSeconds} secondi`);
-    } else if ((phase.kind === 'work' || phase.kind === 'interval') && this.phases[index - 1]?.kind === 'prepare') {
+    } else if (phase.kind === 'interval' && this.phases[index - 1]?.kind === 'prepare') {
       // The countdown that precedes work/interval never gets a chance to preview what's
       // coming next (unlike rest/rest_cycle/interval/amrap, which cue "lavora" a few seconds
       // before ending), so without this the timer goes silent right as prepare hands off to work.
@@ -213,16 +219,18 @@ export class TimerEngine {
 
   private speakUpcoming(next: TimerPhase) {
     if (next.kind === 'work') {
+      // When "nome esercizio ogni round" is on and this round actually has one, the
+      // exercise name replaces the generic "lavora" cue entirely rather than playing
+      // alongside it — both are spoken through the same channel (TTS or a recording),
+      // so back-to-back calls would overlap/clip rather than queue.
+      const announceExercise = this.announce.esercizio && (!!next.exerciseName || !!next.exerciseId);
       let said = false;
-      if (this.announce.frasi) {
+      if (announceExercise) {
+        if (next.exerciseName) this.audio.speakText(next.exerciseName);
+        else if (next.exerciseId) this.audio.speakExercise(next.exerciseId);
+        said = true;
+      } else if (this.announce.frasi) {
         this.audio.speakPhrase('lavora');
-        said = true;
-      }
-      if (this.announce.esercizio && next.exerciseName) {
-        this.audio.speakText(next.exerciseName);
-        said = true;
-      } else if (this.announce.esercizio && next.exerciseId) {
-        this.audio.speakExercise(next.exerciseId);
         said = true;
       }
       if (!said) this.audio.beep();
