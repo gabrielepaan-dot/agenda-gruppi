@@ -1,8 +1,6 @@
 <script lang="ts">
   import { GROUPS, slotsForDate, toIsoDate, type GroupId } from './groups';
   import { ensureSessionForDate, lastPastSession } from './sessionService';
-  import { getCircuitsFor } from './circuitService';
-  import { TIMER_FORMAT_LABELS, TIMER_FORMAT_COLORS, circuitSummary, type Circuit } from './circuitTypes';
   import type { Session } from './sessionTypes';
   import SessionEditor from './SessionEditor.svelte';
 
@@ -12,21 +10,14 @@
 
   let selectedGroupId = $state<GroupId | null>(todaySlots[0]?.groupId ?? null);
   let todaySession = $state<Session | null>(null);
-  let todayCircuits = $state<Circuit[]>([]);
   let lastSession = $state<Session | null>(null);
-  let lastSessionCircuits = $state<Circuit[]>([]);
   let openSession = $state<Session | null>(null);
   let loading = $state(true);
 
   async function loadForGroup(groupId: GroupId) {
     loading = true;
-    const session = await ensureSessionForDate(todayIso, groupId);
-    todaySession = session;
-    todayCircuits = await getCircuitsFor('session', session.id!);
-
-    const last = await lastPastSession(groupId, todayIso);
-    lastSession = last;
-    lastSessionCircuits = last ? await getCircuitsFor('session', last.id!) : [];
+    todaySession = await ensureSessionForDate(todayIso, groupId);
+    lastSession = await lastPastSession(groupId, todayIso);
     loading = false;
   }
 
@@ -41,10 +32,10 @@
     loadForGroup(groupId);
   }
 
-  function sessionSummaryLine(session: Session | null, circuits: Circuit[]): string {
+  function sessionSummaryLine(session: Session | null): string {
     if (!session) return '';
-    if (circuits.length > 0) return circuits.map((c) => c.name).join(', poi ');
-    return 'Nessun contenuto registrato';
+    const text = (session.notes ?? '').trim();
+    return text ? text.split('\n')[0] : 'Nessun contenuto registrato';
   }
 
   function openToday() {
@@ -101,22 +92,10 @@
           <button class="card" onclick={openLastSession}>
             <div class="left">
               <div class="name">Ultima volta · {lastSession.date}</div>
-              <div class="sub">{sessionSummaryLine(lastSession, lastSessionCircuits)}</div>
+              <div class="sub">{sessionSummaryLine(lastSession)}</div>
             </div>
           </button>
         {/if}
-
-        <div class="section-label">Circuiti di oggi</div>
-        {#if todayCircuits.length === 0}
-          <button class="empty-circuits" onclick={openToday}>Nessun circuito ancora — tocca per aggiungerne</button>
-        {/if}
-        {#each todayCircuits as c (c.id)}
-          <button class="circuit-card" onclick={openToday}>
-            <span class="fmt-pill" style="background:{TIMER_FORMAT_COLORS[c.timerFormat]}">{TIMER_FORMAT_LABELS[c.timerFormat]}</span>
-            <div class="name">{c.name}</div>
-            <div class="sub">{circuitSummary(c)}</div>
-          </button>
-        {/each}
       {/if}
     </div>
   {/if}
@@ -220,58 +199,6 @@
   }
 
   .card .sub {
-    font-size: 14px;
-    color: var(--text-muted);
-    margin-top: 3px;
-  }
-
-  .section-label {
-    padding: 22px 20px 10px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-muted);
-  }
-
-  .empty-circuits {
-    margin: 0 20px 14px;
-    background: transparent;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius-lg);
-    padding: 16px 18px;
-    color: var(--text-muted);
-    font-size: 14px;
-    width: calc(100% - 40px);
-  }
-
-  .circuit-card {
-    margin: 0 20px 14px;
-    background: var(--bg-elevated);
-    border-radius: var(--radius-lg);
-    padding: 16px 18px;
-    border: none;
-    width: calc(100% - 40px);
-    text-align: left;
-    display: block;
-  }
-
-  .fmt-pill {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: #111;
-    margin-bottom: 8px;
-  }
-
-  .circuit-card .name {
-    font-size: 17px;
-    font-weight: 700;
-  }
-
-  .circuit-card .sub {
     font-size: 14px;
     color: var(--text-muted);
     margin-top: 3px;

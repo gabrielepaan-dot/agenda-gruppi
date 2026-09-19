@@ -1,5 +1,5 @@
 <script lang="ts">
-  export type NavTab = 'oggi' | 'agenda' | 'timer' | 'standard' | 'eserciziario';
+  export type NavTab = 'oggi' | 'agenda' | 'standard';
 
   let { active, onSelect }: { active: NavTab; onSelect: (tab: NavTab) => void } = $props();
 
@@ -7,8 +7,6 @@
     { id: 'oggi', label: 'Oggi' },
     { id: 'agenda', label: 'Agenda' },
     { id: 'standard', label: 'Allenamenti' },
-    { id: 'eserciziario', label: 'Esercizi' },
-    { id: 'timer', label: 'Timer' },
   ];
 </script>
 
@@ -26,18 +24,9 @@
             <rect x="3" y="5" width="18" height="16" rx="2" />
             <path d="M3 9.5h18M8 3v4M16 3v4" />
           </svg>
-        {:else if item.id === 'timer'}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="13" r="8" />
-            <path d="M12 9v4l3 2M10 2h4M18.5 5.5l1.5-1.5" />
-          </svg>
         {:else if item.id === 'standard'}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4.5 8v8M2 10.5v3M20 10.5v3M19.5 8v8M8 8v8M16 8v8M8 12h8" />
-          </svg>
-        {:else}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
           </svg>
         {/if}
       </span>

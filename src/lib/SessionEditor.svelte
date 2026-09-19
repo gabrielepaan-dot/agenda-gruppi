@@ -1,35 +1,15 @@
 <script lang="ts">
   import { db } from './db';
   import { GROUPS, candidateDatesForGroup, formatShortDate } from './groups';
-  import { getCircuitsFor, deleteCircuitsFor } from './circuitService';
+  import { deleteCircuitsFor } from './circuitService';
   import { saveSessionAsAllenamento } from './standardService';
-  import {
-    TIPOLOGIE,
-    TIPOLOGIA_LABELS,
-    TIPOLOGIA_COLORS,
-    TIMER_FORMAT_LABELS,
-    TIMER_FORMAT_COLORS,
-    circuitSummary,
-    type Circuit,
-    type Tipologia,
-  } from './circuitTypes';
   import type { Session } from './sessionTypes';
-  import CircuitForm from './CircuitForm.svelte';
-  import Timer from './Timer.svelte';
-  import NotesList from './NotesList.svelte';
 
   let { session, onClose, onDeleted }: { session: Session; onClose: () => void; onDeleted: () => void } = $props();
 
   const group = GROUPS[session.groupId];
 
-  let esercizi = $state(session.esercizi ?? '');
   let notes = $state(session.notes ?? '');
-  let tipologie = $state<Tipologia[]>([...(session.tipologie ?? [])]);
-  let circuits = $state<Circuit[]>([]);
-  let circuitFormOpen = $state(false);
-  let editingCircuit = $state<Circuit | null>(null);
-  let timerCircuit = $state<Circuit | null>(null);
-  let savedFlash = $state(false);
 
   let saveAllenamentoOpen = $state(false);
   let allenamentoDate = $state(session.date);
@@ -39,80 +19,25 @@
     return base.includes(session.date) ? base : [...base, session.date].sort();
   })();
 
-  async function loadCircuits() {
-    circuits = await getCircuitsFor('session', session.id!);
-  }
-
-  loadCircuits();
-
-  async function saveEsercizi() {
-    await db.sessions.update(session.id!, { esercizi });
-    savedFlash = true;
-    setTimeout(() => (savedFlash = false), 1200);
-  }
-
   async function saveNotes() {
     await db.sessions.update(session.id!, { notes });
   }
 
-  function toggleTipologia(t: Tipologia) {
-    tipologie = tipologie.includes(t) ? tipologie.filter((x) => x !== t) : [...tipologie, t];
-    db.sessions.update(session.id!, { tipologie: [...tipologie] });
-  }
-
-  function openNewCircuit() {
-    editingCircuit = null;
-    circuitFormOpen = true;
-  }
-
-  function openEditCircuit(c: Circuit) {
-    editingCircuit = c;
-    circuitFormOpen = true;
-  }
-
-  function closeCircuitForm() {
-    circuitFormOpen = false;
-  }
-
-  async function handleCircuitSaved() {
-    circuitFormOpen = false;
-    await loadCircuits();
-  }
-
-  async function moveCircuit(index: number, delta: number) {
-    const target = index + delta;
-    if (target < 0 || target >= circuits.length) return;
-    const a = circuits[index];
-    const b = circuits[target];
-    await db.circuits.update(a.id!, { order: b.order });
-    await db.circuits.update(b.id!, { order: a.order });
-    await loadCircuits();
-  }
-
-  function openTimer(c: Circuit) {
-    timerCircuit = c;
-  }
-
-  function closeTimer() {
-    timerCircuit = null;
-  }
-
   async function deleteSession() {
-    if (!confirm('Eliminare questa sessione e tutti i suoi circuiti?')) return;
+    if (!confirm('Eliminare questa sessione?')) return;
     await deleteCircuitsFor('session', session.id!);
     await db.sessions.delete(session.id!);
     onDeleted();
   }
 
   async function openSaveAllenamento() {
-    await saveEsercizi();
     await saveNotes();
     allenamentoDate = session.date;
     saveAllenamentoOpen = true;
   }
 
   async function confirmSaveAllenamento() {
-    await saveSessionAsAllenamento(session, esercizi, notes, allenamentoDate);
+    await saveSessionAsAllenamento(session, '', notes, allenamentoDate);
     saveAllenamentoOpen = false;
     allenamentoSaved = true;
     setTimeout(() => (allenamentoSaved = false), 1800);
@@ -130,56 +55,10 @@
   </div>
 
   <div class="content">
-    <div class="field">
-      <span>Tipologia</span>
-      <div class="tipologia-toggle-row">
-        {#each TIPOLOGIE as t}
-          <button
-            type="button"
-            class="tipologia-toggle"
-            class:active={tipologie.includes(t)}
-            style={tipologie.includes(t) ? `background:${TIPOLOGIA_COLORS[t].bg}; border-color:${TIPOLOGIA_COLORS[t].bg}; color:${TIPOLOGIA_COLORS[t].text}` : ''}
-            onclick={() => toggleTipologia(t)}
-          >
-            {TIPOLOGIA_LABELS[t]}
-          </button>
-        {/each}
-      </div>
-    </div>
-
     <label class="field">
-      <span>Note</span>
-      <textarea bind:value={notes} onblur={saveNotes} placeholder="Note libere sulla sessione" rows="3"></textarea>
+      <span>Allenamento</span>
+      <textarea bind:value={notes} onblur={saveNotes} placeholder="Note libere sulla sessione" rows="16"></textarea>
     </label>
-
-    <NotesList bind:value={esercizi} onCommit={saveEsercizi} />
-
-    <div class="field">
-      <span>Circuiti ({circuits.length})</span>
-      {#each circuits as c, i (c.id)}
-        <div class="card">
-          <div class="move-col">
-            <button class="move-btn" onclick={() => moveCircuit(i, -1)} disabled={i === 0} aria-label="Sposta su">▲</button>
-            <button class="move-btn" onclick={() => moveCircuit(i, 1)} disabled={i === circuits.length - 1} aria-label="Sposta giù">▼</button>
-          </div>
-          <button class="card-main" onclick={() => openEditCircuit(c)}>
-            <div class="card-top">
-              <span class="fmt-pill" style="background:{TIMER_FORMAT_COLORS[c.timerFormat]}">{TIMER_FORMAT_LABELS[c.timerFormat]}</span>
-            </div>
-            <div class="name">{c.name || circuitSummary(c)}</div>
-            {#if c.name}
-              <div class="sub">{circuitSummary(c)}</div>
-            {/if}
-          </button>
-          <button class="play-btn" onclick={() => openTimer(c)} aria-label="Avvia timer">▶</button>
-        </div>
-      {/each}
-      <button class="add-circuit-btn" onclick={openNewCircuit}>+ Aggiungi circuito</button>
-    </div>
-
-    {#if savedFlash}
-      <p class="flash">Salvato</p>
-    {/if}
   </div>
 
   <div class="action-footer">
@@ -189,17 +68,6 @@
     <button class="btn-delete" onclick={deleteSession}>Elimina sessione</button>
   </div>
 </div>
-
-{#if circuitFormOpen}
-  <CircuitForm
-    circuit={editingCircuit}
-    ownerType="session"
-    ownerId={session.id!}
-    order={circuits.length}
-    onClose={closeCircuitForm}
-    onSaved={handleCircuitSaved}
-  />
-{/if}
 
 {#if saveAllenamentoOpen}
   <div class="overlay" role="button" tabindex="-1" onclick={() => (saveAllenamentoOpen = false)} onkeydown={(e) => e.key === 'Escape' && (saveAllenamentoOpen = false)}>
@@ -217,10 +85,6 @@
       <button class="btn-save-allenamento" onclick={confirmSaveAllenamento}>Salva</button>
     </div>
   </div>
-{/if}
-
-{#if timerCircuit}
-  <Timer circuit={timerCircuit} onClose={closeTimer} />
 {/if}
 
 <style>
@@ -294,130 +158,23 @@
     color: var(--text-muted);
   }
 
-  .flash {
-    color: var(--success);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .card {
-    background: var(--bg-elevated);
-    border-radius: var(--radius-lg);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding-right: 12px;
-    margin-bottom: 10px;
-  }
-
-  .move-col {
-    display: flex;
-    flex-direction: column;
-    padding-left: 6px;
-  }
-
-  .move-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-faint);
-    font-size: 10px;
-    padding: 4px 6px;
-  }
-
-  .move-btn:disabled {
-    opacity: 0.25;
-  }
-
-  .card-main {
-    flex: 1;
-    min-width: 0;
-    background: transparent;
-    border: none;
-    padding: 14px 12px;
-    display: block;
-    text-align: left;
-  }
-
-  .play-btn {
-    flex-shrink: 0;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    font-size: 15px;
-  }
-
-  .card-top {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  .fmt-pill {
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: #111;
-  }
-
-  .tipologia-toggle-row {
-    display: flex;
-    gap: 8px;
-  }
-
-  .tipologia-toggle {
-    flex: 1;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 8px 6px;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text-muted);
-  }
-
   textarea {
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 12px 14px;
+    padding: 14px 16px;
     font-size: 15px;
     font-weight: 500;
     font-family: inherit;
+    line-height: 1.5;
     color: var(--text);
     resize: vertical;
+    min-height: 320px;
   }
 
   textarea:focus {
     outline: 2px solid var(--accent);
     outline-offset: -1px;
-  }
-
-  .card .name {
-    font-size: 16px;
-    font-weight: 700;
-  }
-
-  .card .sub {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-top: 3px;
-  }
-
-  .add-circuit-btn {
-    background: transparent;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius-sm);
-    padding: 12px;
-    color: var(--accent);
-    font-weight: 700;
-    font-size: 14px;
   }
 
   .action-footer {

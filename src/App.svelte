@@ -1,9 +1,7 @@
 <script lang="ts">
   import Oggi from './lib/Oggi.svelte';
   import Agenda from './lib/Agenda.svelte';
-  import Timer from './lib/Timer.svelte';
   import AllenamentiStandard from './lib/AllenamentiStandard.svelte';
-  import Eserciziario from './lib/Eserciziario.svelte';
   import BottomNav, { type NavTab } from './lib/BottomNav.svelte';
 
   let tab = $state<NavTab>('oggi');
@@ -18,14 +16,8 @@
     {#key tab}
       <Agenda />
     {/key}
-  {:else if tab === 'timer'}
-    {#key tab}
-      <Timer embedded />
-    {/key}
   {:else if tab === 'standard'}
     <AllenamentiStandard />
-  {:else}
-    <Eserciziario />
   {/if}
 </main>
 
