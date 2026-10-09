@@ -1,4 +1,4 @@
-export type GroupId = 'corso_base' | 'intermedi_corda' | 'pro_mer' | 'pro_gio' | 'corso_intermedio';
+export type GroupId = 'mattina' | 'corso_base' | 'intermedi_corda' | 'pro_mer' | 'pro_gio' | 'corso_intermedio';
 
 export interface Group {
   id: GroupId;
@@ -7,6 +7,7 @@ export interface Group {
 }
 
 export const GROUPS: Record<GroupId, Group> = {
+  mattina: { id: 'mattina', name: 'Mattina', color: '#5FB8C9' },
   corso_base: { id: 'corso_base', name: 'Corso base', color: '#4CAF7D' },
   intermedi_corda: { id: 'intermedi_corda', name: 'Intermedi corda', color: '#3B6FA0' },
   pro_mer: { id: 'pro_mer', name: 'Pro', color: '#9B7EDE' },
@@ -21,12 +22,14 @@ export interface ScheduleSlot {
 }
 
 export const WEEKLY_SCHEDULE: ScheduleSlot[] = [
-  { weekday: 1, order: 1, groupId: 'corso_base' },
+  { weekday: 1, order: 1, groupId: 'mattina' },
+  { weekday: 1, order: 2, groupId: 'corso_base' },
   { weekday: 2, order: 1, groupId: 'intermedi_corda' },
   { weekday: 3, order: 1, groupId: 'pro_mer' },
   { weekday: 3, order: 2, groupId: 'corso_intermedio' },
-  { weekday: 4, order: 1, groupId: 'intermedi_corda' },
-  { weekday: 4, order: 2, groupId: 'pro_gio' },
+  { weekday: 4, order: 1, groupId: 'mattina' },
+  { weekday: 4, order: 2, groupId: 'intermedi_corda' },
+  { weekday: 4, order: 3, groupId: 'pro_gio' },
 ];
 
 export function slotsForWeekday(weekday: number): ScheduleSlot[] {

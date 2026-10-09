@@ -1,16 +1,18 @@
-export type Tipologia = 'forza' | 'potenza' | 'resistenza';
+export type Tipologia = 'forza' | 'potenza' | 'power_endurance' | 'resistenza';
 
-export const TIPOLOGIE: Tipologia[] = ['forza', 'potenza', 'resistenza'];
+export const TIPOLOGIE: Tipologia[] = ['forza', 'potenza', 'power_endurance', 'resistenza'];
 
 export const TIPOLOGIA_LABELS: Record<Tipologia, string> = {
   forza: 'Forza',
   potenza: 'Potenza',
+  power_endurance: 'Power endurance',
   resistenza: 'Resistenza',
 };
 
 export const TIPOLOGIA_COLORS: Record<Tipologia, { bg: string; text: string }> = {
   forza: { bg: '#3B6FA0', text: '#fff' },
   potenza: { bg: '#E8622C', text: '#fff' },
+  power_endurance: { bg: '#9B7EDE', text: '#fff' },
   resistenza: { bg: '#4CAF7D', text: '#111' },
 };
 

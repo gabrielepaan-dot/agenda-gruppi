@@ -2,6 +2,7 @@
   import { db } from './db';
   import { GROUPS, candidateDatesForGroup, formatShortDate, type GroupId } from './groups';
   import { deleteCircuitsFor } from './circuitService';
+  import { TIPOLOGIE, TIPOLOGIA_LABELS, TIPOLOGIA_COLORS, type Tipologia } from './circuitTypes';
   import type { Allenamento } from './standardTypes';
 
   let {
@@ -33,6 +34,13 @@
     dateEditorOpen = false;
   }
 
+  let tipologie = $state<Tipologia[]>([...(allenamento.tipologie ?? [])]);
+
+  function toggleTipologia(t: Tipologia) {
+    tipologie = tipologie.includes(t) ? tipologie.filter((x) => x !== t) : [...tipologie, t];
+    db.allenamenti.update(allenamento.id!, { tipologie: [...tipologie] });
+  }
+
   let notes = $state(allenamento.notes ?? '');
 
   async function saveNotes() {
@@ -58,6 +66,21 @@
   </div>
 
   <div class="content">
+    <div class="field">
+      <span>Tipologia (facoltativa)</span>
+      <div class="tipologia-toggle-row">
+        {#each TIPOLOGIE as t}
+          <button
+            class="tipologia-toggle"
+            style={tipologie.includes(t) ? `background:${TIPOLOGIA_COLORS[t].bg}; border-color:${TIPOLOGIA_COLORS[t].bg}; color:${TIPOLOGIA_COLORS[t].text}` : ''}
+            onclick={() => toggleTipologia(t)}
+          >
+            {TIPOLOGIA_LABELS[t]}
+          </button>
+        {/each}
+      </div>
+    </div>
+
     <label class="field">
       <span>Allenamento</span>
       <textarea bind:value={notes} onblur={saveNotes} placeholder="Note libere sull'allenamento" rows="16"></textarea>
@@ -156,6 +179,22 @@
     gap: 8px;
     font-size: 13px;
     font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .tipologia-toggle-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .tipologia-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px 6px;
+    font-size: 13px;
+    font-weight: 700;
     color: var(--text-muted);
   }
 
